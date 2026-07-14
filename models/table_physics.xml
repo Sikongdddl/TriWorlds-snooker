@@ -1,0 +1,44 @@
+<mujoco>
+  <asset>
+    <material name="table_physics_proxy_mat" rgba="0.1 0.45 1.0 0.10"/>
+    <material name="pocket_sensor_mat" rgba="1.0 0.8 0.05 0.18"/>
+  </asset>
+
+  <worldbody>
+    <body name="table_physics_root">
+      <!-- Physics proxy aligned to the Sketchfab 8-foot table asset.
+           Visual table mesh remains in pool_table_asset.xml. -->
+      <geom name="playfield_collision" type="box" pos="0 0 0.755"
+            size="1.07 0.54 0.006" group="3"
+            material="table_physics_proxy_mat" contype="1" conaffinity="2"
+            friction="0.18 0.004 0.00008" solref="0.003 1"/>
+
+      <!-- Cushions are split to leave six visual/physical pocket openings. -->
+      <geom name="cushion_y_pos_left" type="box" pos="-0.55 0.575 0.795"
+            size="0.43 0.035 0.040" group="3" material="table_physics_proxy_mat"
+            contype="1" conaffinity="2" friction="0.35 0.006 0.0001"/>
+      <geom name="cushion_y_pos_right" type="box" pos="0.55 0.575 0.795"
+            size="0.43 0.035 0.040" group="3" material="table_physics_proxy_mat"
+            contype="1" conaffinity="2" friction="0.35 0.006 0.0001"/>
+      <geom name="cushion_y_neg_left" type="box" pos="-0.55 -0.575 0.795"
+            size="0.43 0.035 0.040" group="3" material="table_physics_proxy_mat"
+            contype="1" conaffinity="2" friction="0.35 0.006 0.0001"/>
+      <geom name="cushion_y_neg_right" type="box" pos="0.55 -0.575 0.795"
+            size="0.43 0.035 0.040" group="3" material="table_physics_proxy_mat"
+            contype="1" conaffinity="2" friction="0.35 0.006 0.0001"/>
+      <geom name="cushion_x_pos" type="box" pos="1.105 0 0.795"
+            size="0.035 0.42 0.040" group="3" material="table_physics_proxy_mat"
+            contype="1" conaffinity="2" friction="0.35 0.006 0.0001"/>
+      <geom name="cushion_x_neg" type="box" pos="-1.105 0 0.795"
+            size="0.035 0.42 0.040" group="3" material="table_physics_proxy_mat"
+            contype="1" conaffinity="2" friction="0.35 0.006 0.0001"/>
+
+      <site name="pocket_corner_negx_negy" pos="-1.08 -0.55 0.762" size="0.075" group="3" rgba="1 0.8 0.05 0.18"/>
+      <site name="pocket_corner_negx_posy" pos="-1.08 0.55 0.762" size="0.075" group="3" rgba="1 0.8 0.05 0.18"/>
+      <site name="pocket_corner_posx_negy" pos="1.08 -0.55 0.762" size="0.075" group="3" rgba="1 0.8 0.05 0.18"/>
+      <site name="pocket_corner_posx_posy" pos="1.08 0.55 0.762" size="0.075" group="3" rgba="1 0.8 0.05 0.18"/>
+      <site name="pocket_middle_negy" pos="0 -0.575 0.762" size="0.070" group="3" rgba="1 0.8 0.05 0.18"/>
+      <site name="pocket_middle_posy" pos="0 0.575 0.762" size="0.070" group="3" rgba="1 0.8 0.05 0.18"/>
+    </body>
+  </worldbody>
+</mujoco>

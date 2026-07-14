@@ -1,0 +1,17 @@
+<mujoco>
+  <equality>
+    <!-- Stage-1 dual-hand cue holding scaffold.
+         Soft point constraints connect LIFT TCP sites to cue grip sites.
+         This is intentionally not a frictional gripper contact model yet. -->
+    <connect name="left_tcp_to_cue_left_grip"
+             site1="lift_left_gripper_tcp"
+             site2="cue_left_grip_site"
+             solref="0.020 1"
+             solimp="0.80 0.95 0.001"/>
+    <connect name="right_tcp_to_cue_right_grip"
+             site1="lift_right_gripper_tcp"
+             site2="cue_right_grip_site"
+             solref="0.020 1"
+             solimp="0.80 0.95 0.001"/>
+  </equality>
+</mujoco>

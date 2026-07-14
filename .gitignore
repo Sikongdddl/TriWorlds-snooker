@@ -1,0 +1,10 @@
+# Downloaded source archives.
+/assets/*.zip
+
+# Generated renders and smoke-test artifacts.
+/outputs/
+
+# Python local artifacts.
+__pycache__/
+*.py[cod]
+.pytest_cache/

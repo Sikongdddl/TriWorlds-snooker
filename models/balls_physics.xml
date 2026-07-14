@@ -1,0 +1,70 @@
+<mujoco>
+  <asset>
+    <material name="ball_white_mat" rgba="0.96 0.94 0.86 1"/>
+    <material name="ball_yellow_mat" rgba="0.95 0.72 0.08 1"/>
+    <material name="ball_blue_mat" rgba="0.05 0.20 0.78 1"/>
+    <material name="ball_red_mat" rgba="0.82 0.06 0.04 1"/>
+    <material name="ball_purple_mat" rgba="0.45 0.12 0.70 1"/>
+    <material name="ball_orange_mat" rgba="0.95 0.38 0.05 1"/>
+    <material name="ball_green_mat" rgba="0.05 0.48 0.18 1"/>
+    <material name="ball_black_mat" rgba="0.02 0.02 0.018 1"/>
+  </asset>
+
+  <default>
+    <default class="pool_ball">
+      <geom type="sphere" size="0.028575" mass="0.170"
+            contype="2" conaffinity="7" condim="6" priority="2"
+            friction="0.18 0.004 0.00008" solref="0.0025 1"
+            solimp="0.95 0.99 0.001"/>
+      <joint damping="0.0001"/>
+    </default>
+  </default>
+
+  <worldbody>
+    <body name="cue_ball" pos="-0.616 0 0.7898">
+      <freejoint name="cue_ball_free"/>
+      <geom name="cue_ball_geom" class="pool_ball" material="ball_white_mat"/>
+      <site name="cue_ball_center" pos="0 0 0" size="0.004" rgba="0.1 0.1 1 1"/>
+    </body>
+    <body name="object_ball_0" pos="0.5498 0 0.7900">
+      <freejoint name="object_ball_0_free"/>
+      <geom name="object_ball_0_geom" class="pool_ball" material="ball_yellow_mat"/>
+    </body>
+    <body name="object_ball_1" pos="0.5988 0.0286 0.7900">
+      <freejoint name="object_ball_1_free"/>
+      <geom name="object_ball_1_geom" class="pool_ball" material="ball_blue_mat"/>
+    </body>
+    <body name="object_ball_2" pos="0.5988 -0.0287 0.7900">
+      <freejoint name="object_ball_2_free"/>
+      <geom name="object_ball_2_geom" class="pool_ball" material="ball_red_mat"/>
+    </body>
+    <body name="object_ball_3" pos="0.6480 0.0572 0.7900">
+      <freejoint name="object_ball_3_free"/>
+      <geom name="object_ball_3_geom" class="pool_ball" material="ball_purple_mat"/>
+    </body>
+    <body name="object_ball_4" pos="0.6480 0.0003 0.7900">
+      <freejoint name="object_ball_4_free"/>
+      <geom name="object_ball_4_geom" class="pool_ball" material="ball_black_mat"/>
+    </body>
+    <body name="object_ball_5" pos="0.6480 -0.0567 0.7900">
+      <freejoint name="object_ball_5_free"/>
+      <geom name="object_ball_5_geom" class="pool_ball" material="ball_orange_mat"/>
+    </body>
+    <body name="object_ball_6" pos="0.6970 0.0858 0.7900">
+      <freejoint name="object_ball_6_free"/>
+      <geom name="object_ball_6_geom" class="pool_ball" material="ball_green_mat"/>
+    </body>
+    <body name="object_ball_7" pos="0.6970 0.0286 0.7900">
+      <freejoint name="object_ball_7_free"/>
+      <geom name="object_ball_7_geom" class="pool_ball" material="ball_yellow_mat"/>
+    </body>
+    <body name="object_ball_8" pos="0.6970 -0.0286 0.7900">
+      <freejoint name="object_ball_8_free"/>
+      <geom name="object_ball_8_geom" class="pool_ball" material="ball_blue_mat"/>
+    </body>
+    <body name="object_ball_9" pos="0.6970 -0.0858 0.7900">
+      <freejoint name="object_ball_9_free"/>
+      <geom name="object_ball_9_geom" class="pool_ball" material="ball_red_mat"/>
+    </body>
+  </worldbody>
+</mujoco>
