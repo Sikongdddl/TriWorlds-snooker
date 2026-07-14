@@ -1,217 +1,308 @@
-# MuJoCo Pool/Snooker Scene Scaffold
+# Snooker MuJoCo
 
-This project is the working scaffold for a future dual-arm mobile robot billiards/snooker simulation. The default scene uses the downloaded Sketchfab `Pool Table Traditional` glTF package as the visual base, with the LIFT robot visual asset placed beside the table.
+MuJoCo scaffold for studying billiards/snooker manipulation with a future dual-arm mobile robot. The current repository focuses on the physics and software interfaces around a cue, balls, table contacts, and a layered policy pipeline before adding full robot control.
 
-It still intentionally does not include the AC-One robot, dual-arm control, mobile base control, Gymnasium wrappers, full snooker rules, perception, or domain randomization.
+The project is intentionally small: plain MJCF models, the native `mujoco` Python API, NumPy, and executable smoke tests.
 
-## Default Scene
+## Current Status
 
-Default model:
+Implemented:
 
-```text
-models/scene_pool_asset.xml
-```
+- A pool/snooker-style MuJoCo scene using the downloaded Sketchfab **Pool Table Traditional** visual asset.
+- Hidden primitive collision proxies for the table bed, cushions, cue, and balls.
+- A dynamic cue with a Sketchfab visual mesh and primitive physical geoms.
+- Dynamic cue ball and object balls with free joints.
+- An articulated LIFT robot scaffold in the default scene.
+- Robot-free mid-level training scene for cue/ball physics experiments.
+- High/mid/low policy interface scaffold.
+- Smoke tests for model loading, cue/ball contacts, spin response, and policy interfaces.
+- Render scripts for table, cue stroke, robot scaffold, and spin-response comparison videos.
 
-This scene is generated from:
+Not implemented yet:
 
-```text
-assets/table/pool_table_traditional/scene.gltf
-```
+- AC-One robot model.
+- Final dual-arm controller.
+- Mobile base control.
+- Gymnasium/RL training loop.
+- Full snooker rules.
+- Ball pocket sensors/removal.
+- Calibrated cloth/cushion/cue-tip dynamics.
+- Vision or domain randomization.
 
-The glTF meshes are converted to MuJoCo-referenced OBJ files under:
+## Demo Commands
 
-```text
-assets/table/pool_table_traditional/mujoco_full/
-```
-
-The table, pockets, net bags, and hanging light come from the downloaded asset. The default scene includes an articulated LIFT model compiled from URDF. Static glTF balls are replaced by dynamic MuJoCo bodies. The cue uses the Sketchfab cue as a visual mesh attached to a dynamic MuJoCo body, while collision/contact remains on primitive geoms so the scene can be used for physics smoke tests and later training.
-
-Visual mesh and collision geometry stay separate:
-
-- `models/table_physics.xml`: hidden playfield, cushion, and pocket-site proxies.
-- `models/balls_physics.xml`: dynamic cue ball and rack balls.
-- `models/cue_physics.xml`: dynamic cue with Sketchfab visual mesh, primitive `cue_shaft`/`cue_tip`, `cue_left_grip_site`, and `cue_right_grip_site`.
-- `models/lift_articulated.xml`: articulated LIFT MJCF exported from `lift_fixed.urdf`, with position actuators and TCP sites.
-
-## Coordinates and Units
-
-All values use SI units where MuJoCo physics is involved.
-
-- World X axis: table long direction.
-- World Y axis: table short direction.
-- World Z axis: up.
-- The visual asset is converted from glTF coordinates into this convention.
-
-The current visual table follows the 8-foot pool table asset dimensions. It is not yet rescaled into a regulation snooker table.
-
-## Install
-
-```bash
-cd /home/ubuntu/jrWork/snooker_mujoco
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-## Run
-
-Convert the downloaded glTF asset into MuJoCo OBJ/MJCF assets:
-
-```bash
-python scripts/assets/convert_pool_table_asset.py
-```
-
-Extract the Sketchfab cue as a local visual-only mesh for the dynamic MuJoCo cue:
-
-```bash
-python scripts/assets/extract_cue_visual_asset.py
-```
-
-Inspect the default model:
-
-```bash
-python scripts/tools/inspect_model.py
-```
-
-Open the default viewer:
+Open the default scene:
 
 ```bash
 python scripts/tools/view_scene.py
 ```
 
-Render images and an orbit video:
+Inspect the compiled model:
 
 ```bash
-MUJOCO_GL=egl python scripts/render/render_scene.py
+python scripts/tools/inspect_model.py
 ```
 
-Render several pool-table showcase videos:
-
-```bash
-MUJOCO_GL=egl python scripts/render/render_pool_asset_videos.py --width 1280 --height 720 --fps 30 --seconds 6
-```
-
-Render a robot-free mid-level pot shot video:
-
-```bash
-MUJOCO_GL=egl python scripts/render/render_midlevel_env_stroke.py
-```
-
-Run a physics smoke test for the current cue/ball chain:
-
-```bash
-python scripts/smoke_tests/run_physics_smoke.py
-```
-
-Check the current dual-grip scaffold alignment:
-
-```bash
-python scripts/smoke_tests/run_dual_grip_scaffold.py
-```
-
-Run a guided dual-grip stroke scaffold:
-
-```bash
-python scripts/smoke_tests/run_guided_grip_stroke.py
-```
-
-Run the high/mid/low-level policy pipeline smoke test:
-
-```bash
-python scripts/smoke_tests/pipeline_smoke.py
-```
-
-Run the robot-free mid-level shot policy environment:
+Run the robot-free mid-level cue/ball smoke test:
 
 ```bash
 python scripts/smoke_tests/run_midlevel_env_smoke.py
 ```
 
-Run the three-stage mid-level curriculum interface smoke test:
+Render spin-response comparison videos:
 
 ```bash
-python scripts/smoke_tests/midlevel_curriculum_smoke.py
+MUJOCO_GL=egl python scripts/render/render_spin_response_comparison.py \
+  --kind both \
+  --width 1920 \
+  --height 720 \
+  --output-dir outputs/videos_midlevel
 ```
 
-Check whether cue-tip offsets produce distinguishable cue-ball spin responses:
+Generated videos are written under `outputs/`, which is intentionally ignored by git.
+
+## Installation
+
+Create an environment and install the minimal runtime dependencies:
 
 ```bash
-python scripts/smoke_tests/run_spin_response_sweep.py
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-Script layout:
+For headless rendering on Linux, set an appropriate MuJoCo GL backend:
 
-- `scripts/assets`: asset conversion/extraction scripts.
-- `scripts/tools`: repeated developer tools such as model inspection and viewer launch.
-- `scripts/render`: image/video generation scripts.
-- `scripts/smoke_tests`: validation scripts for physics, constraints, and policy interfaces.
+```bash
+export MUJOCO_GL=egl
+```
 
-## Pipeline Scaffold
+The development machine used for this repo also has a Conda environment named `metaworld` with MuJoCo, NumPy, imageio, OpenCV, and PyTorch. The project itself does not require that environment.
 
-The initial training/control architecture lives in flat modules under `src/snooker_env` and mirrors the three-layer split used in `booster_gym`:
+## Repository Layout
 
-- High level: game strategy selects a sequence of semantic mid-level shot policy calls from table/ball/optional vision state.
-- Mid level: each shot policy converts one `SkillCommand` into a low-level command trajectory.
-- Low level: tool manipulation tracks cue pose and cue velocity commands with robot joints.
+```text
+snooker_mujoco/
+├── assets/                 # downloaded and converted visual assets
+├── models/                 # MJCF scene and reusable model includes
+├── scripts/
+│   ├── assets/             # asset conversion/extraction utilities
+│   ├── render/             # image/video render scripts
+│   ├── smoke_tests/        # physics and interface checks
+│   └── tools/              # model inspection and viewer launch
+├── src/snooker_env/        # scene helpers and policy pipeline interfaces
+├── requirements.txt
+└── README.md
+```
 
-The mid-level interface is intentionally uniform:
+Large downloaded archives and generated videos are ignored:
+
+```text
+assets/*.zip
+outputs/
+```
+
+## Scenes and Models
+
+Main scene:
+
+```text
+models/scene_pool_asset.xml
+```
+
+This scene combines:
+
+- `models/pool_table_asset.xml`: converted Sketchfab table visual asset.
+- `models/table_physics.xml`: hidden table-bed, cushion, and pocket-site proxy layer.
+- `models/balls_physics.xml`: dynamic ball bodies for the full scene.
+- `models/cue_physics.xml`: dynamic cue body with visual mesh and primitive collision.
+- `models/lift_articulated.xml`: articulated LIFT robot scaffold.
+- `models/grip_constraints.xml`: first-pass soft constraints between LIFT TCP sites and cue grip sites.
+
+Robot-free mid-level training scene:
+
+```text
+models/midlevel_train_scene.xml
+```
+
+This scene keeps the visual table and physical proxies, but removes robot control from the loop. It contains a cue, cue ball, and one object ball, and is used by `MidLevelCueEnv` to test cue/ball dynamics directly.
+
+## Coordinate Convention
+
+All physics quantities use SI units:
+
+- Length: meters.
+- Mass: kilograms.
+- Time: seconds.
+
+World frame:
+
+- `+X`: table long direction.
+- `+Y`: table short direction.
+- `+Z`: up.
+
+Cue frame:
+
+- Cue local `+X` points from butt to tip.
+- `cue_tip_site` is at the positive local-X end.
+- Mid-level cue commands are expressed in world coordinates.
+
+## Policy Architecture
+
+The software scaffold follows a three-layer split.
+
+High level:
+
+- Selects semantic shot policies from table and ball state.
+- Emits a sequence of `SkillCommand`s.
+
+Mid level:
+
+- Converts each semantic shot command into executable cue commands.
+- Current semantic skills:
+  - `PotShotPolicy`
+  - `SafetyShotPolicy`
+  - `PositionShotPolicy`
+  - `BreakShotPolicy`
+
+Low level:
+
+- Tracks cue pose and velocity commands with robot joints.
+- Future work: dual-arm impedance control, passive tool fixtures, and residual joint-level RL.
+
+The core mid-level contract is:
 
 ```text
 SkillCommand + SceneState -> tuple[CueCommand, ...]
 CueCommand = cue pose + cue velocity + optional debug label
 ```
 
-The optional `debug_label` is for logs and training diagnostics only. Low-level control should not depend on the semantic shot policy that produced a command. Command duration is fixed by the executor's `action_repeat`, not produced by the policy.
+`CueCommand` deliberately does not include gripper force or per-command duration:
 
-The first supported mid-level shot policies are:
+- Gripper force belongs to future low-level tool manipulation and sim-to-real robustness.
+- Command duration is fixed by the executor's `action_repeat`, not learned by the mid-level policy.
 
-- `PotShotPolicy`: offensive potting shot.
-- `SafetyShotPolicy`: defensive safety shot.
-- `PositionShotPolicy`: potting-style shot with cue-ball position objective.
-- `BreakShotPolicy`: high-power opening/break shot.
+## Mid-Level RL Plan
 
-Impact-parameter inference, cue setup, backswing, stroke, and follow-through are internal stages of each policy. They are not exposed as separate high-level calls.
+The current training target is not full robot control. The first RL task is a robot-free cue-control environment where the policy learns cue-level shot execution.
 
-For mid-level training, `models/midlevel_train_scene.xml` provides a robot-free scene with the visual table, table physics proxy, cue, cue ball, and one object ball. `MidLevelCueEnv` executes `CueCommand` trajectories directly on the cue free joint as an idealized low-level controller. This controller enforces table/cushion feasibility at the simulator layer: requested cue poses that would penetrate the table or rails are projected upward into the feasible action space, and `constraint_projection_count` records how often this happened. This lets mid-level policies train shot selection and command-trajectory generation before adding dual-arm robot tracking, without learning physically impossible cue motions.
+For offensive pot shots, the intended low-dimensional action manifold is:
 
-Mid-level RL training uses a fixed three-stage curriculum in `midlevel_rl.py`:
+```text
+cue speed
+tip offset y
+tip offset z
+```
 
-1. `impact_parameter_inference`: learn cue direction, cue speed, contact offset, cue elevation, and spin intent.
-2. `cue_setup_trajectory_generation`: learn pre-shot setup, alignment, and stroke-start poses.
-3. `stroke_trajectory_generation`: learn the executable `CueCommand` sequence for backswing, impact, and follow-through.
+This keeps the action space aligned with the final low-level command interface while avoiding a full 3D pose/quaternion action space. The deterministic parts of cue placement are constraints of the skill manifold, not an extra policy adapter.
 
-These stages are internal to each semantic shot policy. High level still calls `PotShotPolicy`, `SafetyShotPolicy`, `PositionShotPolicy`, or `BreakShotPolicy`; it does not call the curriculum stages directly.
+The staged curriculum scaffold in `src/snooker_env/midlevel_rl.py` is:
 
-Non-RL system behaviors are separated in `pipeline_system.py`:
+1. `impact_parameter_inference`: cue direction, cue speed, contact offset, elevation, spin intent.
+2. `cue_setup_trajectory_generation`: setup pose, align pose, stroke-start pose.
+3. `stroke_trajectory_generation`: executable `CueCommand` sequence.
 
-- `GeometricBodyPositioningPlanner`: walking-to-shot preparation scaffold.
-- `DefaultRecoveryPlanner`: shooting-to-walking recovery scaffold.
+These stages are internal to each semantic skill. High-level policy still calls `PotShotPolicy`, `SafetyShotPolicy`, `PositionShotPolicy`, or `BreakShotPolicy`.
 
-The current implementations are deliberately scripted placeholders. They define the contracts for future planning, RL, VLM, impedance control, and residual joint-level learning without introducing a training framework dependency yet.
+## Validation and Smoke Tests
 
-## Main Models
+Model and scene checks:
 
-- `models/scene_pool_asset.xml`: current default scene for future development.
-- `models/pool_table_asset.xml`: converted Sketchfab pool-table visual asset plus hidden table proxy.
-- `models/table_physics.xml`: hidden table collision and pocket proxy layer.
-- `models/midlevel_train_scene.xml`: robot-free mid-level training scene with cue, cue ball, and one object ball.
-- `models/midlevel_balls.xml`: two-ball asset for mid-level policy training.
-- `models/balls_physics.xml`: dynamic billiard balls.
-- `models/cue_physics.xml`: dynamic cue body, Sketchfab cue visual mesh, primitive physics geoms, and grip sites.
-- `models/lift_articulated.xml`: articulated LIFT model compiled from URDF and included in the default scene.
-- `models/grip_constraints.xml`: stage-1 soft equality constraints from LIFT TCP sites to cue grip sites.
+```bash
+python scripts/tools/inspect_model.py
+python scripts/smoke_tests/run_physics_smoke.py
+```
 
-## Current Limits
+Robot/cue scaffold checks:
 
-- Table collision is still an approximate hidden proxy.
-- LIFT mesh collision is disabled in the default scene; simplified robot collision proxies still need to be added.
-- The LIFT base pose and lift-column height are a scaffold pose chosen to put TCP sites near the cue grip sites. It is not a solved robot IK posture yet.
-- `run_guided_grip_stroke.py` uses direct Jacobian IK qpos updates as a scaffold smoke test. It is not the final RL controller.
-- Pockets are visually present and have placeholder sites, but not yet event sensors or ball-removal logic.
-- Cue-table collision is disabled in the first smoke-test contact mask so the cue can pass over the rail and hit the ball; cue-ball and ball-table contacts are active.
-- Cloth/cushion/ball/cue-tip dynamics are not calibrated.
-- The asset is an 8-foot pool table, not a regulation 12-foot snooker table.
+```bash
+python scripts/smoke_tests/run_dual_grip_scaffold.py
+python scripts/smoke_tests/run_grip_constraint_smoke.py
+python scripts/smoke_tests/run_guided_grip_stroke.py
+```
 
-## Asset Attribution
+Policy interface checks:
 
-`assets/table/pool_table_traditional` is based on "Pool Table Traditional" by fizyman, licensed under CC-BY-4.0. See `assets/table/pool_table_traditional/license.txt`.
+```bash
+python scripts/smoke_tests/pipeline_smoke.py
+python scripts/smoke_tests/run_midlevel_env_smoke.py
+python scripts/smoke_tests/midlevel_curriculum_smoke.py
+```
+
+Cue spin response checks:
+
+```bash
+python scripts/smoke_tests/run_spin_response_sweep.py
+python scripts/smoke_tests/search_draw_shot.py
+```
+
+Current physics finding:
+
+- Left/right side spin produces clearly distinguishable lateral and angular responses.
+- High/low vertical cue offsets produce measurable angular velocity differences.
+- A clean, realistic draw-shot rollback is not yet validated. Earlier high-power rollback videos were rejected as a validation artifact because the cue continued pushing after ball-ball contact.
+
+## Rendering
+
+Render the default scene:
+
+```bash
+MUJOCO_GL=egl python scripts/render/render_scene.py
+```
+
+Render table and robot showcase videos:
+
+```bash
+MUJOCO_GL=egl python scripts/render/render_pool_asset_videos.py \
+  --width 1280 \
+  --height 720 \
+  --fps 30 \
+  --seconds 6
+```
+
+Render a robot-free mid-level stroke:
+
+```bash
+MUJOCO_GL=egl python scripts/render/render_midlevel_env_stroke.py
+```
+
+Render high/center/low and left/center/right spin comparisons:
+
+```bash
+MUJOCO_GL=egl python scripts/render/render_spin_response_comparison.py --kind both
+```
+
+## Asset Workflow
+
+The downloaded Sketchfab zip is ignored by git. After placing it under `assets/`, regenerate converted assets with:
+
+```bash
+python scripts/assets/convert_pool_table_asset.py
+python scripts/assets/extract_cue_visual_asset.py
+```
+
+Visual and physical geometry are intentionally separate:
+
+- Visual meshes come from the asset package.
+- MuJoCo collision remains primitive and independently tunable.
+
+This keeps the scene useful for physics tests even if the visual asset changes.
+
+## Known Limitations
+
+- The table is based on an 8-foot pool table asset, not a regulation 12-foot snooker table.
+- Table collision is an approximate hidden proxy.
+- Pocket sites exist, but event sensors and ball removal are not implemented.
+- Cloth, cushion, ball, and cue-tip contact parameters are placeholders.
+- LIFT mesh collision is disabled; simplified robot collision proxies still need to be added.
+- LIFT pose is a scaffold, not a solved IK posture.
+- `run_guided_grip_stroke.py` uses direct Jacobian qpos updates as a smoke test, not a final controller.
+- Robot-free `MidLevelCueEnv` directly controls the cue free joint and should be treated as an ideal low-level executor.
+
+## Attribution
+
+The table asset under `assets/table/pool_table_traditional` is based on **Pool Table Traditional** by fizyman, licensed under CC-BY-4.0. See:
+
+```text
+assets/table/pool_table_traditional/license.txt
+```
