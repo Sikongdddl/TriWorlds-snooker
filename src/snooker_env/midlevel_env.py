@@ -13,6 +13,7 @@ from pathlib import Path
 import mujoco
 import numpy as np
 
+from snooker_env.contact_events import CollisionEventMonitor, ContactEvent
 from snooker_env.pipeline_types import BallState, CueCommand, SceneState, TableState
 
 
@@ -34,12 +35,14 @@ class MidLevelRolloutResult:
     object_ball_final_velocity: np.ndarray
     has_nan: bool
     exploded: bool
+    contact_events: tuple[ContactEvent, ...] = ()
+    pocketed_balls: tuple[str, ...] = ()
 
 
 class MidLevelCueEnv:
     """Two-ball scene with direct cue pose/velocity control."""
 
-    def __init__(self, model_path: Path = DEFAULT_MIDLEVEL_MODEL, action_repeat: int = 50) -> None:
+    def __init__(self, model_path: Path = DEFAULT_MIDLEVEL_MODEL, action_repeat: int = 200) -> None:
         if not model_path.exists():
             raise FileNotFoundError(model_path)
         if action_repeat <= 0:
@@ -55,6 +58,7 @@ class MidLevelCueEnv:
         self.object_ball_geom = self._id(mujoco.mjtObj.mjOBJ_GEOM, "object_ball_0_geom")
         self.cue_ball_joint = self._id(mujoco.mjtObj.mjOBJ_JOINT, "cue_ball_free")
         self.object_ball_joint = self._id(mujoco.mjtObj.mjOBJ_JOINT, "object_ball_0_free")
+        self.contact_monitor = CollisionEventMonitor(self.model)
         self._cue_local_samples = np.linspace(-0.725, 0.725, 25)
         self._cue_radius = 0.011
         self._table_obstacles = (
@@ -76,6 +80,7 @@ class MidLevelCueEnv:
     def reset(self) -> SceneState:
         mujoco.mj_resetData(self.model, self.data)
         mujoco.mj_forward(self.model, self.data)
+        self.contact_monitor.reset()
         return self.scene_state()
 
     def scene_state(self) -> SceneState:
@@ -90,6 +95,7 @@ class MidLevelCueEnv:
         )
 
     def execute(self, commands: tuple[CueCommand, ...], settle_time: float = 0.8) -> MidLevelRolloutResult:
+        self.contact_monitor.reset()
         first_cue_ball_contact: float | None = None
         first_ball_ball_contact: float | None = None
         constraint_projection_count = 0
@@ -136,6 +142,7 @@ class MidLevelCueEnv:
                     constraint_projection_count += 1
                 self._set_cue_state(pos, quat, segment_velocity, command.angular_velocity)
                 mujoco.mj_step(self.model, self.data)
+                self.contact_monitor.scan(self.data)
                 cue_contact, ball_contact = self._contact_flags()
                 min_cue_table_clearance = min(min_cue_table_clearance, clearance)
                 if cue_contact and first_cue_ball_contact is None:
@@ -168,6 +175,7 @@ class MidLevelCueEnv:
                 np.zeros(3, dtype=np.float64),
             )
             mujoco.mj_step(self.model, self.data)
+            self.contact_monitor.scan(self.data)
             cue_contact, ball_contact = self._contact_flags()
             min_cue_table_clearance = min(min_cue_table_clearance, clearance)
             if cue_contact and first_cue_ball_contact is None:
@@ -292,4 +300,6 @@ class MidLevelCueEnv:
             object_ball_final_velocity=object_ball.linear_velocity,
             has_nan=has_nan,
             exploded=exploded,
+            contact_events=tuple(self.contact_monitor.events),
+            pocketed_balls=tuple(sorted(self.contact_monitor.pocketed_balls)),
         )

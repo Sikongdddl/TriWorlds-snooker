@@ -1,37 +1,129 @@
 <mujoco>
   <asset>
     <material name="table_physics_proxy_mat" rgba="0.1 0.45 1.0 0.10"/>
+    <material name="cushion_nose_proxy_mat" rgba="1.0 0.25 0.1 0.18"/>
     <material name="pocket_sensor_mat" rgba="1.0 0.8 0.05 0.18"/>
   </asset>
+
+  <default>
+    <!-- Higher priority than balls: cloth owns sliding/torsional/rolling
+         friction while ball-ball contacts remain nearly frictionless. -->
+    <default class="cloth_collision">
+      <geom type="box" group="3" material="table_physics_proxy_mat"
+            contype="1" conaffinity="2" condim="6" priority="1"
+            friction="0.12 0.001 0.00020" solref="0.001 1"
+            solimp="0.95 0.99 0.001"/>
+    </default>
+
+    <!-- A rounded rail nose gives a stable contact normal near pocket jaws.
+         The direct solver parameters were calibrated at a 0.25 ms step. -->
+    <default class="cushion_nose">
+      <geom type="capsule" size="0.008" group="3" material="cushion_nose_proxy_mat"
+            contype="1" conaffinity="2" condim="6" priority="1"
+            friction="0.03 0.002 0.00010" solref="-1e7 -500"
+            solimp="0.95 0.99 0.001"/>
+    </default>
+
+    <default class="pocket_catch">
+      <geom type="box" size="0.20 0.20 0.010" group="3" material="pocket_sensor_mat"
+            contype="1" conaffinity="2" condim="6" priority="1"
+            friction="0.40 0.010 0.010" solref="0.001 1"
+            solimp="0.95 0.99 0.001"/>
+    </default>
+
+    <default class="pocket_wall">
+      <geom type="box" group="3" material="pocket_sensor_mat"
+            contype="1" conaffinity="2" condim="6" priority="1"
+            friction="0.30 0.005 0.002" solref="0.001 1"
+            solimp="0.95 0.99 0.001"/>
+    </default>
+  </default>
 
   <worldbody>
     <body name="table_physics_root">
       <!-- Physics proxy aligned to the Sketchfab 8-foot table asset.
            Visual table mesh remains in pool_table_asset.xml. -->
-      <geom name="playfield_collision" type="box" pos="0 0 0.755"
-            size="1.07 0.54 0.006" group="3"
-            material="table_physics_proxy_mat" contype="1" conaffinity="2"
-            friction="0.18 0.004 0.00008" solref="0.003 1"/>
+      <geom name="playfield_collision" class="cloth_collision" pos="0 0 0.755"
+            size="1.07 0.54 0.006"/>
 
-      <!-- Cushions are split to leave six visual/physical pocket openings. -->
+      <!-- Non-colliding support volumes document the visual rail envelopes.
+           The rounded capsule noses below are the actual collision shapes. -->
       <geom name="cushion_y_pos_left" type="box" pos="-0.55 0.575 0.795"
             size="0.43 0.035 0.040" group="3" material="table_physics_proxy_mat"
-            contype="1" conaffinity="2" friction="0.35 0.006 0.0001"/>
+            contype="0" conaffinity="0"/>
       <geom name="cushion_y_pos_right" type="box" pos="0.55 0.575 0.795"
             size="0.43 0.035 0.040" group="3" material="table_physics_proxy_mat"
-            contype="1" conaffinity="2" friction="0.35 0.006 0.0001"/>
+            contype="0" conaffinity="0"/>
       <geom name="cushion_y_neg_left" type="box" pos="-0.55 -0.575 0.795"
             size="0.43 0.035 0.040" group="3" material="table_physics_proxy_mat"
-            contype="1" conaffinity="2" friction="0.35 0.006 0.0001"/>
+            contype="0" conaffinity="0"/>
       <geom name="cushion_y_neg_right" type="box" pos="0.55 -0.575 0.795"
             size="0.43 0.035 0.040" group="3" material="table_physics_proxy_mat"
-            contype="1" conaffinity="2" friction="0.35 0.006 0.0001"/>
+            contype="0" conaffinity="0"/>
       <geom name="cushion_x_pos" type="box" pos="1.105 0 0.795"
             size="0.035 0.42 0.040" group="3" material="table_physics_proxy_mat"
-            contype="1" conaffinity="2" friction="0.35 0.006 0.0001"/>
+            contype="0" conaffinity="0"/>
       <geom name="cushion_x_neg" type="box" pos="-1.105 0 0.795"
             size="0.035 0.42 0.040" group="3" material="table_physics_proxy_mat"
-            contype="1" conaffinity="2" friction="0.35 0.006 0.0001"/>
+            contype="0" conaffinity="0"/>
+
+      <!-- Long-rail noses, split at the two middle pockets. -->
+      <geom name="cushion_nose_y_pos_left" class="cushion_nose"
+            fromto="-0.980 0.548 0.795 -0.130 0.548 0.795"/>
+      <geom name="cushion_nose_y_pos_right" class="cushion_nose"
+            fromto="0.130 0.548 0.795 0.980 0.548 0.795"/>
+      <geom name="cushion_nose_y_neg_left" class="cushion_nose"
+            fromto="-0.980 -0.548 0.795 -0.130 -0.548 0.795"/>
+      <geom name="cushion_nose_y_neg_right" class="cushion_nose"
+            fromto="0.130 -0.548 0.795 0.980 -0.548 0.795"/>
+
+      <!-- Short-rail noses, shortened to leave the four corner pockets. -->
+      <geom name="cushion_nose_x_pos" class="cushion_nose"
+            fromto="1.078 -0.420 0.795 1.078 0.420 0.795"/>
+      <geom name="cushion_nose_x_neg" class="cushion_nose"
+            fromto="-1.078 -0.420 0.795 -1.078 0.420 0.795"/>
+
+      <!-- Catch floors sit below the six openings. Sites remain as cheap
+           pocket-region sensors; entry is detected once a ball drops below
+           the cloth plane inside one of these regions. -->
+      <geom name="pocket_catch_corner_negx_negy" class="pocket_catch" pos="-1.105 -0.585 0.675"/>
+      <geom name="pocket_catch_corner_negx_posy" class="pocket_catch" pos="-1.105 0.585 0.675"/>
+      <geom name="pocket_catch_corner_posx_negy" class="pocket_catch" pos="1.105 -0.585 0.675"/>
+      <geom name="pocket_catch_corner_posx_posy" class="pocket_catch" pos="1.105 0.585 0.675"/>
+      <geom name="pocket_catch_middle_negy" class="pocket_catch" pos="0 -0.650 0.675"/>
+      <geom name="pocket_catch_middle_posy" class="pocket_catch" pos="0 0.650 0.675"/>
+
+      <!-- Low retaining walls keep pocketed balls in the under-table bins.
+           They sit far below the cloth and cannot affect normal play. -->
+      <geom name="pocket_wall_middle_posy_outer" class="pocket_wall"
+            pos="0 0.860 0.735" size="0.21 0.010 0.070"/>
+      <geom name="pocket_wall_middle_posy_left" class="pocket_wall"
+            pos="-0.210 0.650 0.735" size="0.010 0.20 0.070"/>
+      <geom name="pocket_wall_middle_posy_right" class="pocket_wall"
+            pos="0.210 0.650 0.735" size="0.010 0.20 0.070"/>
+      <geom name="pocket_wall_middle_negy_outer" class="pocket_wall"
+            pos="0 -0.860 0.735" size="0.21 0.010 0.070"/>
+      <geom name="pocket_wall_middle_negy_left" class="pocket_wall"
+            pos="-0.210 -0.650 0.735" size="0.010 0.20 0.070"/>
+      <geom name="pocket_wall_middle_negy_right" class="pocket_wall"
+            pos="0.210 -0.650 0.735" size="0.010 0.20 0.070"/>
+
+      <geom name="pocket_wall_corner_posx_posy_x" class="pocket_wall"
+            pos="1.315 0.585 0.735" size="0.010 0.20 0.070"/>
+      <geom name="pocket_wall_corner_posx_posy_y" class="pocket_wall"
+            pos="1.105 0.795 0.735" size="0.20 0.010 0.070"/>
+      <geom name="pocket_wall_corner_posx_negy_x" class="pocket_wall"
+            pos="1.315 -0.585 0.735" size="0.010 0.20 0.070"/>
+      <geom name="pocket_wall_corner_posx_negy_y" class="pocket_wall"
+            pos="1.105 -0.795 0.735" size="0.20 0.010 0.070"/>
+      <geom name="pocket_wall_corner_negx_posy_x" class="pocket_wall"
+            pos="-1.315 0.585 0.735" size="0.010 0.20 0.070"/>
+      <geom name="pocket_wall_corner_negx_posy_y" class="pocket_wall"
+            pos="-1.105 0.795 0.735" size="0.20 0.010 0.070"/>
+      <geom name="pocket_wall_corner_negx_negy_x" class="pocket_wall"
+            pos="-1.315 -0.585 0.735" size="0.010 0.20 0.070"/>
+      <geom name="pocket_wall_corner_negx_negy_y" class="pocket_wall"
+            pos="-1.105 -0.795 0.735" size="0.20 0.010 0.070"/>
 
       <site name="pocket_corner_negx_negy" pos="-1.08 -0.55 0.762" size="0.075" group="3" rgba="1 0.8 0.05 0.18"/>
       <site name="pocket_corner_negx_posy" pos="-1.08 0.55 0.762" size="0.075" group="3" rgba="1 0.8 0.05 0.18"/>

@@ -82,7 +82,7 @@ def main() -> None:
     parser.add_argument("--duration", type=float, default=0.8)
     parser.add_argument("--stroke", type=float, default=0.06, help="Desired TCP displacement along world +X in meters.")
     parser.add_argument("--damping", type=float, default=0.08, help="Damped least-squares IK regularization.")
-    parser.add_argument("--max-step", type=float, default=0.004, help="Max scalar joint update per sim step.")
+    parser.add_argument("--max-step", type=float, default=0.001, help="Max scalar joint update per sim step.")
     args = parser.parse_args()
 
     model = load_model(args.model)

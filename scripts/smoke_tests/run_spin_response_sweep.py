@@ -132,7 +132,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--offset", type=float, default=0.010)
     parser.add_argument("--gap", type=float, default=0.004)
     parser.add_argument("--elevation", type=float, default=np.deg2rad(8.0))
-    parser.add_argument("--action-repeat", type=int, default=80)
+    parser.add_argument("--action-repeat", type=int, default=320)
     parser.add_argument("--settle-time", type=float, default=0.25)
     parser.add_argument("--min-angular-spread", type=float, default=0.05)
     return parser.parse_args()

@@ -14,6 +14,7 @@ Implemented:
 - Dynamic cue ball and object balls with free joints.
 - An articulated LIFT robot scaffold in the default scene.
 - Robot-free mid-level training scene for cue/ball physics experiments.
+- A 12-D residual joint-position Gymnasium environment with differential-IK nominal control.
 - High/mid/low policy interface scaffold.
 - Smoke tests for model loading, cue/ball contacts, spin response, and policy interfaces.
 - Render scripts for table, cue stroke, robot scaffold, and spin-response comparison videos.
@@ -23,10 +24,8 @@ Not implemented yet:
 - AC-One robot model.
 - Final dual-arm controller.
 - Mobile base control.
-- Gymnasium/RL training loop.
-- Full snooker rules.
-- Ball pocket sensors/removal.
-- Calibrated cloth/cushion/cue-tip dynamics.
+- Full snooker rules and automatic removal of pocketed balls.
+- Real-table system identification for cloth/cushion/cue-tip parameters.
 - Vision or domain randomization.
 
 ## Demo Commands
@@ -113,7 +112,7 @@ models/scene_pool_asset.xml
 This scene combines:
 
 - `models/pool_table_asset.xml`: converted Sketchfab table visual asset.
-- `models/table_physics.xml`: hidden table-bed, cushion, and pocket-site proxy layer.
+- `models/table_physics.xml`: hidden cloth, rounded cushion, pocket sensor, and catch-bin physics layer.
 - `models/balls_physics.xml`: dynamic ball bodies for the full scene.
 - `models/cue_physics.xml`: dynamic cue body with visual mesh and primitive collision.
 - `models/lift_articulated.xml`: articulated LIFT robot scaffold.
@@ -167,20 +166,32 @@ Mid level:
 
 Low level:
 
-- Tracks cue pose and velocity commands with robot joints.
-- Future work: dual-arm impedance control, passive tool fixtures, and residual joint-level RL.
+- Tracks timed cue pose and velocity commands with a dual-arm differential-IK nominal controller.
+- Adds bounded 12-D joint-position residuals and executes them through MuJoCo position actuators.
+- Provides a Gymnasium environment and PPO training entry point for residual joint-level RL.
 
 The core mid-level contract is:
 
 ```text
 SkillCommand + SceneState -> tuple[CueCommand, ...]
-CueCommand = cue pose + cue velocity + optional debug label
+CueCommand = cue pose + cue velocity + duration + optional debug label
 ```
 
-`CueCommand` deliberately does not include gripper force or per-command duration:
+`CueCommand` deliberately does not include gripper force:
 
 - Gripper force belongs to future low-level tool manipulation and sim-to-real robustness.
-- Command duration is fixed by the executor's `action_repeat`, not learned by the mid-level policy.
+
+Run the low-level residual environment smoke test:
+
+```bash
+python scripts/smoke_tests/run_lowlevel_residual_env_smoke.py
+```
+
+Start a PPO training run:
+
+```bash
+python scripts/train/train_lowlevel_residual.py --total-timesteps 100000
+```
 
 ## Mid-Level RL Plan
 
@@ -211,6 +222,18 @@ Model and scene checks:
 ```bash
 python scripts/tools/inspect_model.py
 python scripts/smoke_tests/run_physics_smoke.py
+python scripts/smoke_tests/run_initial_rack_smoke.py
+python scripts/smoke_tests/run_collision_calibration.py
+```
+
+The collision calibration checks head-on ball transfer, cushion restitution,
+cloth rolling resistance, and middle-pocket capture. The default physics step
+is 0.25 ms; low-level control remains at 10 ms through 40 MuJoCo substeps.
+
+Render baseline-versus-calibrated collision comparisons:
+
+```bash
+MUJOCO_GL=egl python scripts/render/render_collision_comparisons.py --scenario all
 ```
 
 Robot/cue scaffold checks:

@@ -13,8 +13,8 @@
   <default>
     <default class="pool_ball">
       <geom type="sphere" size="0.028575" mass="0.170"
-            contype="2" conaffinity="7" condim="6" priority="2"
-            friction="0.18 0.004 0.00008" solref="0.0025 1"
+            contype="2" conaffinity="7" condim="3" priority="0"
+            friction="0 0 0" solref="-1e7 -100"
             solimp="0.95 0.99 0.001"/>
       <joint damping="0.0001"/>
     </default>
@@ -30,39 +30,41 @@
       <freejoint name="object_ball_0_free"/>
       <geom name="object_ball_0_geom" class="pool_ball" material="ball_yellow_mat"/>
     </body>
-    <body name="object_ball_1" pos="0.5988 0.0286 0.7900">
+    <!-- Triangular rack spacing is one ball diameter (0.05715 m) plus a
+         0.00050 m safety gap, avoiding initial contact penetration. -->
+    <body name="object_ball_1" pos="0.5997264 0.0288250 0.7900">
       <freejoint name="object_ball_1_free"/>
       <geom name="object_ball_1_geom" class="pool_ball" material="ball_blue_mat"/>
     </body>
-    <body name="object_ball_2" pos="0.5988 -0.0287 0.7900">
+    <body name="object_ball_2" pos="0.5997264 -0.0288250 0.7900">
       <freejoint name="object_ball_2_free"/>
       <geom name="object_ball_2_geom" class="pool_ball" material="ball_red_mat"/>
     </body>
-    <body name="object_ball_3" pos="0.6480 0.0572 0.7900">
+    <body name="object_ball_3" pos="0.6496527 0.0576500 0.7900">
       <freejoint name="object_ball_3_free"/>
       <geom name="object_ball_3_geom" class="pool_ball" material="ball_purple_mat"/>
     </body>
-    <body name="object_ball_4" pos="0.6480 0.0003 0.7900">
+    <body name="object_ball_4" pos="0.6496527 0.0000000 0.7900">
       <freejoint name="object_ball_4_free"/>
       <geom name="object_ball_4_geom" class="pool_ball" material="ball_black_mat"/>
     </body>
-    <body name="object_ball_5" pos="0.6480 -0.0567 0.7900">
+    <body name="object_ball_5" pos="0.6496527 -0.0576500 0.7900">
       <freejoint name="object_ball_5_free"/>
       <geom name="object_ball_5_geom" class="pool_ball" material="ball_orange_mat"/>
     </body>
-    <body name="object_ball_6" pos="0.6970 0.0858 0.7900">
+    <body name="object_ball_6" pos="0.6995791 0.0864750 0.7900">
       <freejoint name="object_ball_6_free"/>
       <geom name="object_ball_6_geom" class="pool_ball" material="ball_green_mat"/>
     </body>
-    <body name="object_ball_7" pos="0.6970 0.0286 0.7900">
+    <body name="object_ball_7" pos="0.6995791 0.0288250 0.7900">
       <freejoint name="object_ball_7_free"/>
       <geom name="object_ball_7_geom" class="pool_ball" material="ball_yellow_mat"/>
     </body>
-    <body name="object_ball_8" pos="0.6970 -0.0286 0.7900">
+    <body name="object_ball_8" pos="0.6995791 -0.0288250 0.7900">
       <freejoint name="object_ball_8_free"/>
       <geom name="object_ball_8_geom" class="pool_ball" material="ball_blue_mat"/>
     </body>
-    <body name="object_ball_9" pos="0.6970 -0.0858 0.7900">
+    <body name="object_ball_9" pos="0.6995791 -0.0864750 0.7900">
       <freejoint name="object_ball_9_free"/>
       <geom name="object_ball_9_geom" class="pool_ball" material="ball_red_mat"/>
     </body>

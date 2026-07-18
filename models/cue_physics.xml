@@ -16,12 +16,13 @@
             material="sketchfab_cue_mat" contype="0" conaffinity="0" density="0"/>
       <geom name="cue_shaft" type="capsule" fromto="-0.725 0 0 0.705 0 0" size="0.010"
             mass="0.50" material="dynamic_cue_wood_mat"
-            contype="4" conaffinity="2" condim="6"
-            friction="0.25 0.006 0.0001" solref="0.0025 1"/>
+            contype="0" conaffinity="0" condim="3"
+            friction="0 0 0"/>
       <geom name="cue_tip" type="capsule" fromto="0.705 0 0 0.725 0 0" size="0.009"
             mass="0.03" material="dynamic_cue_tip_mat"
             contype="4" conaffinity="2" condim="6" priority="3"
-            friction="0.35 0.008 0.0001" solref="0.002 1"/>
+            friction="0.35 0.008 0.0001" solref="-5e6 -300"
+            solimp="0.95 0.99 0.001"/>
       <site name="cue_tip_site" pos="0.725 0 0" size="0.006" rgba="0 1 0 1"/>
       <site name="cue_axis_site" pos="0 0 0" size="0.004" rgba="0 0.4 1 1"/>
       <site name="cue_left_grip_site" pos="0.150333 0 0" size="0.015" rgba="0.1 0.8 1 1"/>

@@ -190,7 +190,7 @@ def convert() -> None:
         scene,
         "option",
         {
-            "timestep": "0.001",
+            "timestep": "0.00025",
             "gravity": "0 0 -9.81",
             "integrator": "RK4",
             "solver": "Newton",

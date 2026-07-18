@@ -134,7 +134,7 @@ def main() -> None:
     parser.add_argument("--cue-ball-x", type=float, default=-0.616)
     parser.add_argument("--gap", type=float, default=0.004)
     parser.add_argument("--elevation", type=float, default=np.deg2rad(8.0))
-    parser.add_argument("--action-repeat", type=int, default=120)
+    parser.add_argument("--action-repeat", type=int, default=480)
     parser.add_argument("--settle-time", type=float, default=1.2)
     parser.add_argument("--rail-guard-x", type=float, default=0.85)
     parser.add_argument("--speeds", type=float, nargs="*", default=[0.8, 1.0, 1.2, 1.5, 1.8, 2.2, 2.6])

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Callable, Protocol
 
 import numpy as np
 
@@ -17,18 +17,18 @@ class LowLevelPolicy(Protocol):
 
 
 LIFT_ARM_JOINTS: tuple[str, ...] = (
-    "left_shoulder_pan",
-    "left_shoulder_lift",
-    "left_elbow",
-    "left_wrist_1",
-    "left_wrist_2",
-    "left_wrist_3",
-    "right_shoulder_pan",
-    "right_shoulder_lift",
-    "right_elbow",
-    "right_wrist_1",
-    "right_wrist_2",
-    "right_wrist_3",
+    "left_arm_joint1",
+    "left_arm_joint2",
+    "left_arm_joint3",
+    "left_arm_joint4",
+    "left_arm_joint5",
+    "left_arm_joint6",
+    "right_arm_joint1",
+    "right_arm_joint2",
+    "right_arm_joint3",
+    "right_arm_joint4",
+    "right_arm_joint5",
+    "right_arm_joint6",
 )
 
 
@@ -68,11 +68,39 @@ class DualArmImpedanceController(LowLevelPolicy):
 class ResidualJointPolicy(LowLevelPolicy):
     """RL residual hook on top of a base low-level controller."""
 
-    def __init__(self, base_controller: LowLevelPolicy | None = None) -> None:
+    def __init__(
+        self,
+        base_controller: LowLevelPolicy | None = None,
+        residual_provider: Callable[[CueCommand, SceneState, JointAction], np.ndarray] | None = None,
+        residual_scale: float = 0.035,
+    ) -> None:
+        if residual_scale <= 0.0:
+            raise ValueError("residual_scale must be positive.")
         self.base_controller = base_controller or DualArmImpedanceController()
+        self.residual_provider = residual_provider
+        self.residual_scale = float(residual_scale)
 
     def act(self, cue_command: CueCommand, state: SceneState) -> JointAction:
         base_action = self.base_controller.act(cue_command, state)
-        # The learned residual is intentionally absent here. A future checkpoint
-        # should add bounded deltas to these base targets.
-        return base_action
+        if self.residual_provider is None or not base_action.joint_names:
+            return base_action
+        normalized_residual = np.asarray(
+            self.residual_provider(cue_command, state, base_action),
+            dtype=np.float64,
+        )
+        if normalized_residual.shape != base_action.position_targets.shape:
+            raise ValueError(
+                "Residual provider output must match the base position-target shape "
+                f"{base_action.position_targets.shape}, got {normalized_residual.shape}."
+            )
+        position_targets = base_action.position_targets + self.residual_scale * np.clip(
+            normalized_residual,
+            -1.0,
+            1.0,
+        )
+        return JointAction(
+            joint_names=base_action.joint_names,
+            position_targets=position_targets,
+            velocity_targets=base_action.velocity_targets.copy(),
+            torque_targets=base_action.torque_targets.copy(),
+        )
