@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Train a DQN high-level PoolTool policy over ball/pocket actions."""
+"""Train a DQN high-level PoolTool policy over ball/pocket/landing actions."""
 
 from __future__ import annotations
 
@@ -39,6 +39,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-break-rack", action="store_true")
     parser.add_argument("--break-speed", type=float, default=10.0)
     parser.add_argument("--no-prune-blocked-actions", action="store_true")
+    parser.add_argument("--no-cue-landing", action="store_true")
+    parser.add_argument("--landing-x-bins", type=int, default=8)
+    parser.add_argument("--landing-y-bins", type=int, default=4)
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--log-interval", type=int, default=1)
     parser.add_argument("--eval-every", type=int, default=100)
@@ -61,6 +64,9 @@ def main() -> None:
         break_rack=not args.no_break_rack,
         break_speed=args.break_speed,
         prune_blocked_actions=not args.no_prune_blocked_actions,
+        include_cue_landing=not args.no_cue_landing,
+        landing_x_bins=args.landing_x_bins,
+        landing_y_bins=args.landing_y_bins,
     )
     device = torch.device(args.device)
     q_net = QNetwork(env.state_dim, env.action_dim, hidden_dim=args.hidden_dim).to(device)
@@ -104,10 +110,15 @@ def main() -> None:
                     "action_index": action,
                     "target_ball_id": action_obj.target_ball_id,
                     "target_pocket_id": action_obj.target_pocket_id,
+                    "cue_landing_cell": action_obj.cue_landing_cell,
                     "reward": reward,
                     "success": bool(info["success"]),
                     "foul": bool(info["foul"]),
                     "reason": str(info["reason"]),
+                    "pot_success": bool(info.get("pot_success")),
+                    "landing_success": info.get("landing_success"),
+                    "actual_cue_landing_cell": info.get("cue_landing_cell"),
+                    "cue_landing_distance": info.get("cue_landing_distance"),
                     "remaining_balls": tuple(info.get("remaining_balls", ())),
                 }
             )
@@ -175,7 +186,7 @@ def main() -> None:
         "best_eval_return": best_eval_return,
         "state_dim": env.state_dim,
         "action_dim": env.action_dim,
-        "actions": [(a.target_ball_id, a.target_pocket_id) for a in env.actions],
+        "actions": [(a.target_ball_id, a.target_pocket_id, a.cue_landing_cell) for a in env.actions],
         "records": episode_records,
         "eval_records": eval_records,
         "checkpoint": str(args.checkpoint),
@@ -226,6 +237,9 @@ def _evaluate_policy(
         break_rack=not args.no_break_rack,
         break_speed=args.break_speed,
         prune_blocked_actions=not args.no_prune_blocked_actions,
+        include_cue_landing=not args.no_cue_landing,
+        landing_x_bins=args.landing_x_bins,
+        landing_y_bins=args.landing_y_bins,
     )
     returns: list[float] = []
     cleared = 0
@@ -276,7 +290,7 @@ def _save_checkpoint(
             "model_state_dict": q_net.state_dict(),
             "state_dim": env.state_dim,
             "action_dim": env.action_dim,
-            "actions": [(a.target_ball_id, a.target_pocket_id) for a in env.actions],
+            "actions": [(a.target_ball_id, a.target_pocket_id, a.cue_landing_cell) for a in env.actions],
             "args": vars(args),
             "episode": episode,
             "return": score,

@@ -320,15 +320,39 @@ python scripts/pooltool/show_pooltool_rollout.py outputs/pooltool/clearance_roll
 
 Inside the GUI, use `n`/`p` to switch shots. Press `Enter` to toggle PoolTool's parallel visualization mode, where the saved shots are overlaid.
 
-The planner's high-level action is intentionally small:
+The planner's high-level action has two supported forms:
 
 ```text
 ShotAction = target_ball_id + target_pocket_id
+ShotAction = target_ball_id + target_pocket_id + cue_landing_cell
 ```
 
-Internally, `PoolToolSinglePlayerEnv` searches for simple cue parameters that can realize this action, simulates them in PoolTool, and returns whether the requested target ball entered the requested pocket. `HeuristicClearancePlanner` ranks candidate `(ball, pocket)` actions with a depth-limited lookahead. The current shot solver only handles simple direct pots; complex break shots, combinations, safeties, and precise cue-ball position play are not implemented yet.
+The optional `cue_landing_cell` is a regular table-plane grid cell for the final cue-ball position. With the default `8 x 4` landing grid, the DQN action space is:
+
+```text
+9 balls * 6 pockets * 32 cue landing cells = 1728 actions
+```
+
+Internally, `PoolToolSinglePlayerEnv` searches for cue parameters that can realize the requested action, simulates them in PoolTool, and returns whether the target ball entered the requested pocket and, when requested, whether the cue ball stopped in the requested landing cell. The search currently samples speed, small aim offsets, side spin, and top/bottom spin around direct-pot ghost-ball geometry. If no sampled cue command solves a requested `(ball, pocket, cue_landing_cell)` action, the DQN environment treats the action as unsolved and gives a negative reward.
+
+`HeuristicClearancePlanner` still ranks simple `(ball, pocket)` actions with depth-limited lookahead. Precise multi-rail position play, combinations, safeties, and full professional shot solving are not implemented yet.
 
 The scripted break is not a high-level policy action. It is an episode setup helper that applies a strong break shot to scatter a rack before the `(ball, pocket)` planner takes over.
+
+Train the DQN position-play action space:
+
+```bash
+python scripts/pooltool/train_dqn_high_level.py \
+  --episodes 10000 \
+  --break-speed 10 \
+  --device cuda
+```
+
+Use the old 54-action ball/pocket space for compatibility:
+
+```bash
+python scripts/pooltool/train_dqn_high_level.py --no-cue-landing
+```
 
 ### Discrete Value-Iteration Baseline
 

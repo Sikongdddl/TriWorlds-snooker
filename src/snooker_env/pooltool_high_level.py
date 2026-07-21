@@ -16,10 +16,41 @@ FloatArray = NDArray[np.float64]
 
 @dataclass(frozen=True)
 class ShotAction:
-    """High-level action: choose a target ball and target pocket."""
+    """High-level action: choose a target ball, target pocket, and optional cue landing cell."""
 
     target_ball_id: str
     target_pocket_id: str
+    cue_landing_cell: int | None = None
+
+
+@dataclass(frozen=True)
+class CueLandingGrid:
+    """Regular table-plane grid used for high-level cue-ball landing commands."""
+
+    x_bins: int = 8
+    y_bins: int = 4
+
+    @property
+    def cell_count(self) -> int:
+        return self.x_bins * self.y_bins
+
+    def cell_center(self, system: Any, cell: int) -> FloatArray:
+        if cell < 0 or cell >= self.cell_count:
+            raise ValueError(f"Invalid cue landing cell {cell}; expected [0, {self.cell_count}).")
+        x_idx = cell % self.x_bins
+        y_idx = cell // self.x_bins
+        return np.asarray(
+            [
+                (x_idx + 0.5) * float(system.table.w) / self.x_bins,
+                (y_idx + 0.5) * float(system.table.l) / self.y_bins,
+            ],
+            dtype=np.float64,
+        )
+
+    def encode_xy(self, system: Any, xy: FloatArray) -> int:
+        x = int(np.clip(np.floor((xy[0] / float(system.table.w)) * self.x_bins), 0, self.x_bins - 1))
+        y = int(np.clip(np.floor((xy[1] / float(system.table.l)) * self.y_bins), 0, self.y_bins - 1))
+        return y * self.x_bins + x
 
 
 @dataclass(frozen=True)
@@ -45,6 +76,10 @@ class ShotEvaluation:
     solution: ShotSolution | None = None
     next_system: Any | None = field(default=None, compare=False, repr=False)
     cue_ball_xy: FloatArray | None = None
+    cue_landing_cell: int | None = None
+    cue_landing_distance: float | None = None
+    pot_success: bool | None = None
+    landing_success: bool | None = None
     events: tuple[str, ...] = ()
 
 
@@ -73,10 +108,11 @@ class BreakResult:
 class PoolToolSinglePlayerEnv:
     """Small PoolTool environment for single-player clearance planning.
 
-    The external high-level action is only ``(target_ball_id, target_pocket_id)``.
-    The environment uses a minimal internal shot solver to find cue parameters
-    that pot the requested ball, if such a direct pot is found in the search
-    grid.
+    The external high-level action is ``(target_ball_id, target_pocket_id)`` or
+    ``(target_ball_id, target_pocket_id, cue_landing_cell)``. The environment
+    uses a minimal internal shot solver to find cue parameters that pot the
+    requested ball and, when requested, leave the cue ball in the target landing
+    cell.
     """
 
     def __init__(
@@ -87,6 +123,10 @@ class PoolToolSinglePlayerEnv:
         legal_mode: str = "any",
         speed_grid: tuple[float, ...] = (0.8, 1.2, 1.6, 2.0, 2.6, 3.2),
         cut_offsets: tuple[float, ...] = (0.0, -1.0, 1.0, -2.0, 2.0),
+        side_spin_grid: tuple[float, ...] = (0.0, -0.4, 0.4, -0.8, 0.8),
+        top_spin_grid: tuple[float, ...] = (0.0, -0.5, 0.5, -0.9, 0.9),
+        landing_grid: CueLandingGrid | None = None,
+        landing_tolerance_scale: float = 0.5,
         max_events: int = 80,
         random_seed: int | None = 42,
     ) -> None:
@@ -98,6 +138,10 @@ class PoolToolSinglePlayerEnv:
         self.legal_mode = legal_mode
         self.speed_grid = speed_grid
         self.cut_offsets = cut_offsets
+        self.side_spin_grid = side_spin_grid
+        self.top_spin_grid = top_spin_grid
+        self.landing_grid = CueLandingGrid() if landing_grid is None else landing_grid
+        self.landing_tolerance_scale = landing_tolerance_scale
         self.max_events = max_events
         self.random_seed = random_seed
         self.system = self.create_initial_system()
@@ -177,6 +221,17 @@ class PoolToolSinglePlayerEnv:
             for pocket_id in self.pocket_ids(system)
         )
 
+    def enumerate_position_actions(self, system: Any | None = None) -> tuple[ShotAction, ...]:
+        """Enumerate ball/pocket/cue-landing actions for position-play policies."""
+
+        system = self.system if system is None else system
+        return tuple(
+            ShotAction(ball_id, pocket_id, landing_cell)
+            for ball_id in self.legal_ball_ids(system)
+            for pocket_id in self.pocket_ids(system)
+            for landing_cell in range(self.landing_grid.cell_count)
+        )
+
     def is_geometrically_pottable(self, system: Any, action: ShotAction) -> bool:
         """Return whether a direct-pot action has a clear ghost-ball geometry."""
 
@@ -196,19 +251,26 @@ class PoolToolSinglePlayerEnv:
         if base_phi is None:
             return ShotEvaluation(action, score=-500.0, success=False, foul=False, reason="blocked_or_bad_geometry")
 
+        if action.cue_landing_cell is not None:
+            self.landing_grid.cell_center(system, action.cue_landing_cell)
+
         best: ShotEvaluation | None = None
         for cut_offset in self.cut_offsets:
             phi = (base_phi + cut_offset) % 360.0
             for speed in self.speed_grid:
-                candidate = self._simulate_solution(
-                    system,
-                    action,
-                    ShotSolution(speed=speed, phi=phi),
-                )
-                if best is None or candidate.score > best.score:
-                    best = candidate
-                if candidate.success and not candidate.foul:
-                    return candidate
+                for side_spin in self.side_spin_grid_for(action):
+                    for top_spin in self.top_spin_grid_for(action):
+                        if side_spin * side_spin + top_spin * top_spin >= 0.98:
+                            continue
+                        candidate = self._simulate_solution(
+                            system,
+                            action,
+                            ShotSolution(speed=speed, phi=phi, side_spin=side_spin, top_spin=top_spin),
+                        )
+                        if best is None or candidate.score > best.score:
+                            best = candidate
+                        if candidate.success and not candidate.foul:
+                            return candidate
 
         if best is None:
             return ShotEvaluation(action, score=-500.0, success=False, foul=False, reason="no_solution")
@@ -238,20 +300,24 @@ class PoolToolSinglePlayerEnv:
         )
         self.pt.simulate(shot, inplace=True, max_events=self.max_events)
 
-        success = self._target_pocketed(shot, action)
+        pot_success = self._target_pocketed(shot, action)
         cue_scratch = self.is_ball_pocketed(shot.balls[self.cue_ball_id])
         first_contact = self._first_ball_contact(shot)
         wrong_first_contact = first_contact is not None and first_contact != action.target_ball_id
         foul = cue_scratch or wrong_first_contact
+        cue_ball_xy = np.asarray(shot.balls[self.cue_ball_id].state.rvw[0, :2], dtype=np.float64)
+        landing_cell, landing_distance, landing_success = self._cue_landing_result(shot, action, cue_ball_xy)
+        success = pot_success and (landing_success if action.cue_landing_cell is not None else True)
 
         score = self._base_score(system, shot, action, solution, success, foul)
-        reason = "pot" if success else "miss"
+        reason = "pot" if pot_success else "miss"
+        if pot_success and action.cue_landing_cell is not None and not landing_success:
+            reason = f"landing_miss:{landing_cell}"
         if cue_scratch:
             reason = "cue_scratch"
         elif wrong_first_contact:
             reason = f"wrong_first_contact:{first_contact}"
 
-        cue_ball_xy = np.asarray(shot.balls[self.cue_ball_id].state.rvw[0, :2], dtype=np.float64)
         return ShotEvaluation(
             action=action,
             score=score,
@@ -261,6 +327,10 @@ class PoolToolSinglePlayerEnv:
             solution=solution,
             next_system=shot,
             cue_ball_xy=cue_ball_xy,
+            cue_landing_cell=landing_cell,
+            cue_landing_distance=landing_distance,
+            pot_success=pot_success,
+            landing_success=landing_success,
             events=tuple(str(event.event_type) for event in shot.events),
         )
 
@@ -281,6 +351,13 @@ class PoolToolSinglePlayerEnv:
         score = 0.0
         score += 1000.0 if success else 0.0
         score -= 1000.0 if foul else 0.0
+        if action.cue_landing_cell is not None and not foul:
+            target_xy = self.landing_grid.cell_center(after, action.cue_landing_cell)
+            cue_after_xy = self._ball_xy(after, self.cue_ball_id)
+            landing_distance = float(np.linalg.norm(cue_after_xy - target_xy))
+            cell_radius = self._landing_cell_radius(after)
+            score += 250.0 if landing_distance <= cell_radius else 0.0
+            score -= 120.0 * landing_distance
         score -= 2.0 * cue_to_ball
         score -= 3.0 * ball_to_pocket
         score -= 0.05 * solution.speed
@@ -338,6 +415,32 @@ class PoolToolSinglePlayerEnv:
 
         angle = float(np.degrees(np.arctan2(cue_to_ghost[1], cue_to_ghost[0])) % 360.0)
         return angle
+
+    def side_spin_grid_for(self, action: ShotAction) -> tuple[float, ...]:
+        return self.side_spin_grid if action.cue_landing_cell is not None else (0.0,)
+
+    def top_spin_grid_for(self, action: ShotAction) -> tuple[float, ...]:
+        return self.top_spin_grid if action.cue_landing_cell is not None else (0.0,)
+
+    def _cue_landing_result(
+        self,
+        system: Any,
+        action: ShotAction,
+        cue_ball_xy: FloatArray,
+    ) -> tuple[int | None, float | None, bool | None]:
+        if action.cue_landing_cell is None:
+            return None, None, None
+        if self.is_ball_pocketed(system.balls[self.cue_ball_id]):
+            return None, None, False
+        actual_cell = self.landing_grid.encode_xy(system, cue_ball_xy)
+        target_xy = self.landing_grid.cell_center(system, action.cue_landing_cell)
+        distance = float(np.linalg.norm(cue_ball_xy - target_xy))
+        return actual_cell, distance, actual_cell == action.cue_landing_cell
+
+    def _landing_cell_radius(self, system: Any) -> float:
+        cell_w = float(system.table.w) / self.landing_grid.x_bins
+        cell_l = float(system.table.l) / self.landing_grid.y_bins
+        return 0.5 * min(cell_w, cell_l) * self.landing_tolerance_scale
 
     def _path_blocked(self, start: FloatArray, end: FloatArray, blockers: Iterable[FloatArray], clearance: float) -> bool:
         segment = end - start

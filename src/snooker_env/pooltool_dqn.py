@@ -1,4 +1,4 @@
-"""DQN scaffold for PoolTool high-level ball/pocket selection."""
+"""DQN scaffold for PoolTool high-level ball/pocket/landing selection."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from snooker_env.pooltool_high_level import PoolToolSinglePlayerEnv, ShotAction, ShotEvaluation
+from snooker_env.pooltool_high_level import CueLandingGrid, PoolToolSinglePlayerEnv, ShotAction, ShotEvaluation
 
 
 MAX_OBJECT_BALLS = 9
@@ -68,7 +68,7 @@ class QNetwork(nn.Module):
 
 
 class PoolToolDQNEnv:
-    """PoolTool environment wrapper with fixed 54-way ball/pocket actions."""
+    """PoolTool environment wrapper with fixed discrete high-level actions."""
 
     def __init__(
         self,
@@ -80,33 +80,46 @@ class PoolToolDQNEnv:
         break_speed: float = 10.0,
         break_target_ball_id: str = "1",
         prune_blocked_actions: bool = True,
+        include_cue_landing: bool = True,
+        landing_x_bins: int = 8,
+        landing_y_bins: int = 4,
         pot_reward: float = 10.0,
         clear_reward: float = 50.0,
         foul_penalty: float = -20.0,
         miss_penalty: float = -2.0,
+        unsolved_penalty: float = -8.0,
         step_penalty: float = -0.1,
         speed_penalty: float = 0.02,
+        landing_reward: float = 5.0,
+        landing_distance_penalty: float = 2.0,
     ) -> None:
-        self.env = PoolToolSinglePlayerEnv(game_type=game_type, legal_mode=legal_mode, random_seed=random_seed)
+        landing_grid = CueLandingGrid(x_bins=landing_x_bins, y_bins=landing_y_bins)
+        self.env = PoolToolSinglePlayerEnv(
+            game_type=game_type,
+            legal_mode=legal_mode,
+            random_seed=random_seed,
+            landing_grid=landing_grid,
+        )
         self.break_rack_enabled = break_rack
         self.break_speed = break_speed
         self.break_target_ball_id = break_target_ball_id
         self.prune_blocked_actions = prune_blocked_actions
+        self.include_cue_landing = include_cue_landing
+        self.landing_grid = landing_grid
         self.pot_reward = pot_reward
         self.clear_reward = clear_reward
         self.foul_penalty = foul_penalty
         self.miss_penalty = miss_penalty
+        self.unsolved_penalty = unsolved_penalty
         self.step_penalty = step_penalty
         self.speed_penalty = speed_penalty
+        self.landing_reward = landing_reward
+        self.landing_distance_penalty = landing_distance_penalty
         self.object_ball_ids = tuple(str(idx) for idx in range(1, MAX_OBJECT_BALLS + 1))
         self.pocket_ids = tuple(self.env.pocket_ids(self.env.create_initial_system()))
         if len(self.pocket_ids) != 6:
             raise ValueError(f"Expected 6 pockets for fixed DQN action space, got {self.pocket_ids}")
-        self.actions = tuple(
-            ShotAction(ball_id, pocket_id)
-            for ball_id in self.object_ball_ids
-            for pocket_id in self.pocket_ids
-        )
+        self.actions = self._build_actions()
 
     @property
     def state_dim(self) -> int:
@@ -150,6 +163,10 @@ class PoolToolDQNEnv:
             "foul": evaluation.foul,
             "reason": evaluation.reason,
             "solution": evaluation.solution,
+            "pot_success": evaluation.pot_success,
+            "landing_success": evaluation.landing_success,
+            "cue_landing_cell": evaluation.cue_landing_cell,
+            "cue_landing_distance": evaluation.cue_landing_distance,
             "remaining_balls": self.env.legal_ball_ids(self.env.system),
         }
 
@@ -189,13 +206,34 @@ class PoolToolDQNEnv:
             before_count = len(self.env.legal_ball_ids(before))
             after_count = len(self.env.legal_ball_ids(after))
             reward += self.pot_reward * max(1, before_count - after_count)
+        elif evaluation.pot_success and evaluation.action.cue_landing_cell is not None:
+            reward += self.unsolved_penalty
         else:
             reward += self.miss_penalty
+        if evaluation.action.cue_landing_cell is not None:
+            if evaluation.landing_success:
+                reward += self.landing_reward
+            elif evaluation.cue_landing_distance is not None:
+                reward -= self.landing_distance_penalty * evaluation.cue_landing_distance
         if self.env.is_cleared(after):
             reward += self.clear_reward
         if evaluation.solution is not None:
             reward -= self.speed_penalty * evaluation.solution.speed
         return float(reward)
+
+    def _build_actions(self) -> tuple[ShotAction, ...]:
+        if not self.include_cue_landing:
+            return tuple(
+                ShotAction(ball_id, pocket_id)
+                for ball_id in self.object_ball_ids
+                for pocket_id in self.pocket_ids
+            )
+        return tuple(
+            ShotAction(ball_id, pocket_id, landing_cell)
+            for ball_id in self.object_ball_ids
+            for pocket_id in self.pocket_ids
+            for landing_cell in range(self.landing_grid.cell_count)
+        )
 
     def _ball_xy(self, system: Any, ball_id: str) -> tuple[float, float]:
         xy = np.asarray(system.balls[ball_id].state.rvw[0, :2], dtype=np.float64)

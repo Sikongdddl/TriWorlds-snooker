@@ -35,11 +35,22 @@ def main() -> None:
     if not args.checkpoint.exists():
         raise SystemExit(f"Checkpoint does not exist: {args.checkpoint}")
 
-    env = PoolToolDQNEnv(random_seed=args.seed)
     checkpoint = torch.load(args.checkpoint, map_location=args.device)
     train_args = checkpoint.get("args", {})
+    checkpoint_action_dim = int(checkpoint["action_dim"])
+    include_cue_landing = not bool(train_args.get("no_cue_landing", checkpoint_action_dim == 54))
+    env = PoolToolDQNEnv(
+        random_seed=args.seed,
+        include_cue_landing=include_cue_landing,
+        landing_x_bins=int(train_args.get("landing_x_bins", 8)),
+        landing_y_bins=int(train_args.get("landing_y_bins", 4)),
+    )
+    if env.action_dim != checkpoint_action_dim:
+        raise SystemExit(
+            f"Checkpoint action_dim={checkpoint_action_dim} is incompatible with env action_dim={env.action_dim}."
+        )
     hidden_dim = int(train_args.get("hidden_dim", 256))
-    q_net = QNetwork(int(checkpoint["state_dim"]), int(checkpoint["action_dim"]), hidden_dim=hidden_dim)
+    q_net = QNetwork(int(checkpoint["state_dim"]), checkpoint_action_dim, hidden_dim=hidden_dim)
     q_net.load_state_dict(checkpoint["model_state_dict"])
     q_net.to(torch.device(args.device))
     q_net.eval()
@@ -74,10 +85,15 @@ def main() -> None:
             "action_index": action_index,
             "target_ball_id": action.target_ball_id,
             "target_pocket_id": action.target_pocket_id,
+            "cue_landing_cell": action.cue_landing_cell,
             "reward": reward,
             "success": bool(info["success"]),
             "foul": bool(info["foul"]),
             "reason": str(info["reason"]),
+            "pot_success": bool(info.get("pot_success")),
+            "landing_success": info.get("landing_success"),
+            "actual_cue_landing_cell": info.get("cue_landing_cell"),
+            "cue_landing_distance": info.get("cue_landing_distance"),
             "remaining_balls": tuple(info.get("remaining_balls", ())),
             "solution": None
             if solution is None
@@ -95,6 +111,7 @@ def main() -> None:
         rollout_records.append({"label": f"dqn shot {shot_idx}", **record})
         print(
             f"{shot_idx}: action={action_index} ball={action.target_ball_id} pocket={action.target_pocket_id} "
+            f"landing={action.cue_landing_cell} "
             f"reward={reward:.3f} success={info['success']} foul={info['foul']} remaining={record['remaining_balls']}",
             flush=True,
         )
