@@ -60,6 +60,15 @@ MUJOCO_GL=egl python scripts/render/render_spin_response_comparison.py \
 
 Generated videos are written under `outputs/`, which is intentionally ignored by git.
 
+Reproduce a PoolTool event-based billiards simulation:
+
+```bash
+python -m pip install pooltool-billiards --extra-index-url https://archive.panda3d.org/
+python scripts/pooltool/reproduce_pooltool_example.py
+```
+
+PoolTool brings a larger dependency stack, including Panda3D, Numba, SciPy, and newer NumPy releases. Prefer installing it in a separate environment if you also use this repository for MuJoCo/RL training.
+
 ## Installation
 
 Create an environment and install the minimal runtime dependencies:
@@ -86,6 +95,7 @@ snooker_mujoco/
 ├── models/                 # MJCF scene and reusable model includes
 ├── scripts/
 │   ├── assets/             # asset conversion/extraction utilities
+│   ├── pooltool/           # PoolTool reproduction experiments
 │   ├── render/             # image/video render scripts
 │   ├── smoke_tests/        # physics and interface checks
 │   └── tools/              # model inspection and viewer launch
@@ -215,6 +225,185 @@ The staged curriculum scaffold in `src/snooker_env/midlevel_rl.py` is:
 
 These stages are internal to each semantic skill. High-level policy still calls `PotShotPolicy`, `SafetyShotPolicy`, `PositionShotPolicy`, or `BreakShotPolicy`.
 
+## PoolTool Reference Environment
+
+PoolTool is an event-based billiards simulator with a higher-fidelity billiards rules/physics stack than the current MuJoCo scaffold. It is useful as a reference environment for high-level shot planning before connecting strategy to robot execution.
+
+Install it as an optional dependency:
+
+```bash
+python -m pip install pooltool-billiards --extra-index-url https://archive.panda3d.org/
+```
+
+Using a separate Python environment is recommended because PoolTool may upgrade NumPy/SciPy and other scientific packages.
+
+The PoolTool hello-world API is:
+
+```python
+import pooltool as pt
+
+table = pt.Table.default()
+balls = pt.get_rack(pt.GameType.NINEBALL, table)
+cue = pt.Cue(cue_ball_id="cue")
+system = pt.System(table=table, balls=balls, cue=cue)
+system.cue.set_state(V0=8, phi=pt.aim.at_ball(system, "1"))
+pt.simulate(system, inplace=True)
+pt.show(system)
+```
+
+PoolTool cue parameters map naturally to high-level shot candidates:
+
+- `V0`: cue impact speed in m/s.
+- `phi`: table-plane shot direction in degrees.
+- `theta`: cue inclination in degrees.
+- `a`: side spin, with positive/negative corresponding to left/right side.
+- `b`: top/bottom spin, with positive top and negative bottom.
+
+Run the local reproduction script:
+
+```bash
+python scripts/pooltool/reproduce_pooltool_example.py \
+  --speed 8.0 \
+  --side-spin 0.0 \
+  --top-spin 0.0 \
+  --output outputs/pooltool/pooltool_example_summary.json
+```
+
+Open PoolTool's GUI after simulation:
+
+```bash
+python scripts/pooltool/reproduce_pooltool_example.py --show
+```
+
+This script writes a JSON summary of cue parameters, events, final ball positions, linear velocities, and angular velocities. It intentionally stays outside the MuJoCo robot-control stack for now.
+
+Run the first high-level clearance planner:
+
+```bash
+python scripts/pooltool/run_clearance_planner.py --game-type example
+```
+
+Run a scripted break, then continue with the heuristic clearance planner:
+
+```bash
+python scripts/pooltool/run_clearance_planner.py \
+  --game-type nineball \
+  --legal-mode any \
+  --break-rack \
+  --break-speed 10
+```
+
+The planner writes three rollout artifacts by default:
+
+```text
+outputs/pooltool/clearance_plan.json
+outputs/pooltool/clearance_rollout.html
+outputs/pooltool/clearance_rollout.msgpack
+```
+
+`clearance_rollout.html` is a static top-down report with one section per shot. It shows ball trajectories, selected target/pocket, cue parameters found by the internal solver, top candidate scores, and the first PoolTool events.
+
+Render the same rollout as a top-down MP4:
+
+```bash
+python scripts/pooltool/render_pooltool_rollout_video.py \
+  --rollout outputs/pooltool/clearance_rollout.msgpack \
+  --plan outputs/pooltool/clearance_plan.json \
+  --output outputs/pooltool/clearance_rollout.mp4
+```
+
+`clearance_rollout.msgpack` stores the full PoolTool `MultiSystem`. Open it in the native PoolTool GUI:
+
+```bash
+python scripts/pooltool/show_pooltool_rollout.py outputs/pooltool/clearance_rollout.msgpack
+```
+
+Inside the GUI, use `n`/`p` to switch shots. Press `Enter` to toggle PoolTool's parallel visualization mode, where the saved shots are overlaid.
+
+The planner's high-level action is intentionally small:
+
+```text
+ShotAction = target_ball_id + target_pocket_id
+```
+
+Internally, `PoolToolSinglePlayerEnv` searches for simple cue parameters that can realize this action, simulates them in PoolTool, and returns whether the requested target ball entered the requested pocket. `HeuristicClearancePlanner` ranks candidate `(ball, pocket)` actions with a depth-limited lookahead. The current shot solver only handles simple direct pots; complex break shots, combinations, safeties, and precise cue-ball position play are not implemented yet.
+
+The scripted break is not a high-level policy action. It is an episode setup helper that applies a strong break shot to scatter a rack before the `(ball, pocket)` planner takes over.
+
+### Discrete Value-Iteration Baseline
+
+The direct-pot heuristic can also be wrapped as a finite tabular MDP:
+
+```text
+state  = cue grid cell + one grid/pocketed cell per object ball
+action = target_ball_id + target_pocket_id
+reward = pot reward + clear bonus - foul/miss/speed penalties
+```
+
+The transition model is generated by PoolTool simulation. For each discrete state, the code evaluates high-level `(ball, pocket)` actions with the same internal direct-shot solver, records the resulting next discrete state, and then runs value iteration.
+
+Run the small one-ball smoke case:
+
+```bash
+python scripts/pooltool/run_discrete_value_iteration.py \
+  --game-type example \
+  --x-bins 6 \
+  --y-bins 3 \
+  --max-depth 3 \
+  --max-states 32
+```
+
+Run the nineball break-and-clear baseline:
+
+```bash
+python scripts/pooltool/run_discrete_value_iteration.py \
+  --game-type nineball \
+  --legal-mode any \
+  --break-rack \
+  --break-speed 10 \
+  --x-bins 8 \
+  --y-bins 4 \
+  --action-prune 0 \
+  --max-depth 0 \
+  --max-states 0 \
+  --prune-blocked-actions
+```
+
+`--action-prune 0` means no score-based or beam-style action pruning is used. `--prune-blocked-actions` only removes actions that have no direct-pot ghost-ball geometry or have a blocked cue/object/pocket path. `--max-depth 0` and `--max-states 0` mean expansion continues until the reachable discrete frontier closes. This is the clean value-iteration setting, but it can be slow for nineball because every transition calls PoolTool simulation.
+
+For faster development, use a state cap without reintroducing action pruning:
+
+```bash
+python scripts/pooltool/run_discrete_value_iteration.py \
+  --game-type nineball \
+  --legal-mode any \
+  --break-rack \
+  --break-speed 10 \
+  --x-bins 8 \
+  --y-bins 4 \
+  --action-prune 0 \
+  --prune-blocked-actions \
+  --max-states 64 \
+  --log-interval 10
+```
+
+This writes:
+
+```text
+outputs/pooltool/discrete_value_iteration_plan.json
+outputs/pooltool/discrete_value_iteration_rollout.html
+outputs/pooltool/discrete_value_iteration_rollout.msgpack
+```
+
+The script logs transition-graph expansion and value-iteration progress:
+
+```text
+expand_graph: expanded=60 states=64 transitions=1896 frontier=4 depth=3
+value_iteration: iteration=1 states=64 max_delta=19.968000
+```
+
+The script supports online local refitting when rollout reaches a discretized state that was not covered by a budget-limited expansion. This keeps capped experiments usable while preserving the action space as full discrete `(ball, pocket)` enumeration.
+
 ## Validation and Smoke Tests
 
 Model and scene checks:
@@ -250,6 +439,8 @@ Policy interface checks:
 python scripts/smoke_tests/pipeline_smoke.py
 python scripts/smoke_tests/run_midlevel_env_smoke.py
 python scripts/smoke_tests/midlevel_curriculum_smoke.py
+python scripts/smoke_tests/run_pooltool_highlevel_smoke.py
+python scripts/smoke_tests/run_pooltool_break_clearance_smoke.py
 ```
 
 Cue spin response checks:

@@ -1,0 +1,4 @@
+# Optional dependency for reproducing PoolTool examples.
+# Linux currently needs the Panda3D archive index until Panda3D 1.11 is released.
+--extra-index-url https://archive.panda3d.org/
+pooltool-billiards
