@@ -85,6 +85,76 @@ def _configure_power_actuators(model: mujoco.MjModel, kp: float, force_limit: fl
             model.actuator_forcerange[actuator_id] = (-force_limit, force_limit)
 
 
+def _collision_configuration(model: mujoco.MjModel, data: mujoco.MjData) -> tuple[str, str]:
+    """Validate and summarize the compiled working-tree collision model."""
+
+    def geom_id(name: str) -> int:
+        identifier = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, name)
+        if identifier < 0:
+            raise ValueError(f"Current collision model is missing geom: {name}")
+        return identifier
+
+    ball = geom_id("cue_ball_geom")
+    cloth = geom_id("playfield_collision")
+    rounded_rails = [
+        geom_id(name)
+        for name in (
+            "cushion_nose_y_pos_left",
+            "cushion_nose_y_pos_right",
+            "cushion_nose_y_neg_left",
+            "cushion_nose_y_neg_right",
+            "cushion_nose_x_pos",
+            "cushion_nose_x_neg",
+        )
+    ]
+    legacy_rails = [
+        geom_id(name)
+        for name in (
+            "cushion_y_pos_left",
+            "cushion_y_pos_right",
+            "cushion_y_neg_left",
+            "cushion_y_neg_right",
+            "cushion_x_pos",
+            "cushion_x_neg",
+        )
+    ]
+    if not all(model.geom_contype[index] != 0 for index in rounded_rails):
+        raise RuntimeError("Current rounded cushion collision geoms are not active.")
+    if any(model.geom_contype[index] != 0 for index in legacy_rails):
+        raise RuntimeError("Legacy box cushion collision geoms are unexpectedly active.")
+
+    object_geoms = [
+        mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, f"object_ball_{index}_geom")
+        for index in range(16)
+    ]
+    object_geoms = [index for index in object_geoms if index >= 0]
+    clearances: list[float] = []
+    for first_index, first_geom in enumerate(object_geoms):
+        first_body = int(model.geom_bodyid[first_geom])
+        for second_geom in object_geoms[first_index + 1:]:
+            second_body = int(model.geom_bodyid[second_geom])
+            clearances.append(
+                float(
+                    np.linalg.norm(data.xpos[first_body] - data.xpos[second_body])
+                    - model.geom_size[first_geom, 0]
+                    - model.geom_size[second_geom, 0]
+                )
+            )
+    minimum_gap = min(clearances) if clearances else float("nan")
+    ball_solref = model.geom_solref[ball]
+    summary = (
+        f"CURRENT XML: dt={model.opt.timestep * 1000.0:.2f}ms  "
+        f"ball condim={int(model.geom_condim[ball])} mu={model.geom_friction[ball, 0]:.3f} "
+        f"solref=({ball_solref[0]:.2g},{ball_solref[1]:.2g})"
+    )
+    geometry = (
+        f"cloth friction=({model.geom_friction[cloth, 0]:.2f},"
+        f"{model.geom_friction[cloth, 1]:.4f},{model.geom_friction[cloth, 2]:.5f})  "
+        f"rounded rails=6 active  legacy rails=off  rack gap={minimum_gap * 1000.0:.3f}mm"
+    )
+    return summary, geometry
+
+
 def _annotate(
     frame: np.ndarray,
     *,
@@ -95,29 +165,33 @@ def _annotate(
     peak_rack_speed: float,
     max_grip_error: float,
     event_count: int,
+    physics_summary: str,
+    geometry_summary: str,
 ) -> np.ndarray:
     image = Image.fromarray(frame)
     draw = ImageDraw.Draw(image, "RGBA")
-    draw.rectangle((0, 0, image.width, 112), fill=(5, 8, 10, 225))
-    draw.text((18, 8), "ROBOT POWER BREAK - TOP VIEW", font=_font(23), fill=(255, 255, 255, 255))
+    draw.rectangle((0, 0, image.width, 150), fill=(5, 8, 10, 225))
+    draw.text((18, 7), "ROBOT POWER BREAK - TOP VIEW", font=_font(21), fill=(255, 255, 255, 255))
     draw.text(
-        (18, 40),
+        (18, 34),
         "nominal dual-arm IK -> joint position actuators (RL residual = 0)",
-        font=_font(15),
+        font=_font(14),
         fill=(180, 220, 255, 255),
     )
+    draw.text((18, 59), physics_summary, font=_font(13), fill=(190, 255, 190, 255))
+    draw.text((18, 82), geometry_summary, font=_font(13), fill=(190, 255, 190, 255))
     cue_text = "waiting" if first_cue_contact is None else f"{first_cue_contact:.3f}s"
     rack_text = "waiting" if first_rack_contact is None else f"{first_rack_contact:.3f}s"
     draw.text(
-        (18, 69),
+        (18, 105),
         f"t={elapsed:4.2f}s   cue contact={cue_text}   rack contact={rack_text}   events={event_count}",
-        font=_font(14),
+        font=_font(13),
         fill=(255, 220, 140, 255),
     )
     draw.text(
-        (18, 91),
+        (18, 127),
         f"cue-ball peak={peak_cue_ball_speed:.2f} m/s   rack peak={peak_rack_speed:.2f} m/s   grip max={max_grip_error * 1000.0:.1f} mm",
-        font=_font(14),
+        font=_font(13),
         fill=(185, 255, 190, 255),
     )
     return np.asarray(image)
@@ -160,8 +234,13 @@ def main() -> None:
         if value <= 0.0:
             raise ValueError(f"{name} must be positive.")
 
-    env = LowLevelResidualEnv(args.model)
+    model_path = args.model.resolve()
+    print(f"loading current collision model from {model_path}")
+    env = LowLevelResidualEnv(model_path)
     env.reset(seed=0)
+    physics_summary, geometry_summary = _collision_configuration(env.model, env.data)
+    print(f"collision physics: {physics_summary}")
+    print(f"collision geometry: {geometry_summary}")
     _configure_power_actuators(env.model, args.arm_kp, args.arm_force_limit)
     _move_overhead_light_to_hidden_group(env.model)
 
@@ -232,7 +311,10 @@ def main() -> None:
                     duration=env.control_dt,
                     debug_label="robot_power_break",
                 )
-                env.executor.apply(env.data, env.controller.act(command, env.data))
+                env.executor.apply(
+                    env.data,
+                    env.controller.act(command, env.data, control_dt=env.control_dt),
+                )
                 next_control_time += env.control_dt
 
             mujoco.mj_step(env.model, env.data)
@@ -287,6 +369,8 @@ def main() -> None:
                 peak_rack_speed=peak_rack_speed,
                 max_grip_error=max_grip_error,
                 event_count=len(env.contact_monitor.events),
+                physics_summary=physics_summary,
+                geometry_summary=geometry_summary,
             )
             writer.append_data(frame)
 

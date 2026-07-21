@@ -224,7 +224,7 @@ def render_group(model_path: Path, output: Path, group: str, width: int, height:
             for panel in panels:
                 while panel.data.time + 0.5 * panel.model.opt.timestep < frame_time:
                     command = _command_at(panel, float(panel.data.time))
-                    nominal = panel.controller.act(command, panel.data)
+                    nominal = panel.controller.act(command, panel.data, control_dt=control_dt)
                     panel.executor.apply(panel.data, nominal)
                     target_time = panel.data.time + control_dt
                     while panel.data.time + 0.5 * panel.model.opt.timestep < target_time:
@@ -271,4 +271,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
