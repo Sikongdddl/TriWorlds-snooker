@@ -11,7 +11,7 @@
     <default class="cloth_collision">
       <geom type="box" group="3" material="table_physics_proxy_mat"
             contype="1" conaffinity="2" condim="6" priority="1"
-            friction="0.12 0.001 0.00020" solref="0.001 1"
+            friction="0.10 0.0007 0.00012" solref="0.001 1"
             solimp="0.95 0.99 0.001"/>
     </default>
 

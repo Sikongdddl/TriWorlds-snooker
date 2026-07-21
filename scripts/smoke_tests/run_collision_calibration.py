@@ -119,7 +119,9 @@ def rolling_speed_after(duration: float = 1.0, speed: float = 1.0) -> float:
     radius = float(model.geom_size[_id(model, mujoco.mjtObj.mjOBJ_GEOM, "cue_ball_geom"), 0])
     data.qpos[cue_qpos:cue_qpos + 3] = (0.0, 0.0, 0.789575)
     data.qvel[cue_dof] = speed
-    data.qvel[cue_dof + 4] = -speed / radius
+    # For +X translation, +Y angular velocity makes the bottom contact point
+    # stationary: omega x (0, 0, -radius) cancels the linear velocity.
+    data.qvel[cue_dof + 4] = speed / radius
     mujoco.mj_forward(model, data)
     for _ in range(int(round(duration / model.opt.timestep))):
         mujoco.mj_step(model, data)

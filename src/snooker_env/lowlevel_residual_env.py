@@ -347,7 +347,11 @@ class LowLevelResidualEnv(gym.Env[np.ndarray, np.ndarray]):
         assert self.command is not None
         next_phase = float(np.clip((self.elapsed_time + self.control_dt) / self.command.duration, 0.0, 1.0))
         self._desired_command = self._trajectory_command(next_phase)
-        nominal_action = self.controller.act(self._desired_command, self.data)
+        nominal_action = self.controller.act(
+            self._desired_command,
+            self.data,
+            control_dt=self.control_dt,
+        )
         self._nominal_targets = nominal_action.position_targets.copy()
         final_targets = self._nominal_targets + self.residual_scale * normalized_action
         self.executor.apply(self.data, final_targets)

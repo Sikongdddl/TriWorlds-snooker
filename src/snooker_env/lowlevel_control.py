@@ -203,23 +203,51 @@ class DualArmDifferentialIKController:
         )
         return np.concatenate(errors), np.vstack(jacobians)
 
-    def act(self, command: CueCommand, data: mujoco.MjData) -> JointAction:
-        """Return one bounded nominal arm position target."""
+    def _task_twist(self, command: CueCommand) -> np.ndarray:
+        """Map the desired cue twist to both world-frame TCP twists."""
+
+        linear = np.asarray(command.linear_velocity, dtype=np.float64)
+        angular = np.asarray(command.angular_velocity, dtype=np.float64)
+        if linear.shape != (3,) or angular.shape != (3,):
+            raise ValueError("Cue linear and angular velocities must both have shape (3,).")
+        if not np.all(np.isfinite(linear)) or not np.all(np.isfinite(angular)):
+            raise ValueError("Cue linear and angular velocities must be finite.")
+
+        cue_rotation = quat_to_matrix(command.pose.quat_wxyz)
+        twists: list[np.ndarray] = []
+        for cue_grip_site_id in self.cue_grip_site_ids:
+            grip_offset_world = cue_rotation @ self.model.site_pos[cue_grip_site_id]
+            grip_linear = linear + np.cross(angular, grip_offset_world)
+            twists.extend((grip_linear, self.orientation_weight * angular))
+        return np.concatenate(twists)
+
+    def act(
+        self,
+        command: CueCommand,
+        data: mujoco.MjData,
+        *,
+        control_dt: float = 0.0,
+    ) -> JointAction:
+        """Return a pose-feedback plus cue-twist-feedforward joint target."""
+
+        if not np.isfinite(control_dt) or control_dt < 0.0:
+            raise ValueError("control_dt must be finite and non-negative.")
 
         mujoco.mj_forward(self.model, data)
         error, jacobian = self._task(data, command.pose)
+        desired_task_step = self.gain * error + control_dt * self._task_twist(command)
         regularized = jacobian @ jacobian.T + (self.damping**2) * np.eye(jacobian.shape[0])
         try:
-            joint_delta = jacobian.T @ np.linalg.solve(regularized, self.gain * error)
+            joint_delta = jacobian.T @ np.linalg.solve(regularized, desired_task_step)
         except np.linalg.LinAlgError:
             joint_delta = np.zeros(self.action_size, dtype=np.float64)
         joint_delta = np.clip(joint_delta, -self.max_joint_step, self.max_joint_step)
         targets = self.executor.clip(self.joint_positions(data) + joint_delta)
         zeros = np.zeros(self.action_size, dtype=np.float64)
+        velocity_targets = joint_delta / control_dt if control_dt > 0.0 else zeros.copy()
         return JointAction(
             joint_names=self.joint_names,
             position_targets=targets,
-            velocity_targets=zeros.copy(),
+            velocity_targets=velocity_targets,
             torque_targets=zeros.copy(),
         )
-
