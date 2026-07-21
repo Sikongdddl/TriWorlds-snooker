@@ -128,8 +128,14 @@ def main() -> None:
     parser.add_argument("--fps", type=int, default=30)
     parser.add_argument("--seconds", type=float, default=4.0)
     parser.add_argument("--stroke", type=float, default=0.075)
+    parser.add_argument(
+        "--stroke-seconds",
+        type=float,
+        default=None,
+        help="Time used to reach the requested stroke displacement; defaults to 55%% of the video.",
+    )
     parser.add_argument("--damping", type=float, default=0.08)
-    parser.add_argument("--max-step", type=float, default=0.004)
+    parser.add_argument("--max-step", type=float, default=0.001)
     args = parser.parse_args()
 
     model = load_model(args.model)
@@ -148,18 +154,30 @@ def main() -> None:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     total_frames = max(1, int(round(args.seconds * args.fps)))
     sim_steps_per_frame = max(1, int(round((1.0 / args.fps) / model.opt.timestep)))
-    stroke_frames = max(1, int(0.55 * total_frames))
+    if args.stroke_seconds is not None and args.stroke_seconds <= 0.0:
+        raise ValueError("--stroke-seconds must be positive.")
+    stroke_frames = max(
+        1,
+        int(round(args.stroke_seconds * args.fps)) if args.stroke_seconds is not None else int(0.55 * total_frames),
+    )
 
     cue_tip_start = _site_pos(model, data, "cue_tip_site")
     first_contact: float | None = None
     cue_tip_geom = _id(model, mujoco.mjtObj.mjOBJ_GEOM, "cue_tip")
     cue_ball_geom = _id(model, mujoco.mjtObj.mjOBJ_GEOM, "cue_ball_geom")
+    cue_ball_joint = _id(model, mujoco.mjtObj.mjOBJ_JOINT, "cue_ball_free")
+    cue_ball_dof = int(model.jnt_dofadr[cue_ball_joint])
+    peak_cue_ball_speed = 0.0
 
     with imageio.get_writer(args.output, fps=args.fps, codec="libx264", quality=9) as writer:
         for frame in range(total_frames):
             phase = min(1.0, frame / stroke_frames)
             for _ in range(sim_steps_per_frame):
                 _guided_step(model, data, dofs, qpos_ids, initial_targets, phase, args.stroke, args.damping, args.max_step)
+                peak_cue_ball_speed = max(
+                    peak_cue_ball_speed,
+                    float(np.linalg.norm(data.qvel[cue_ball_dof:cue_ball_dof + 3])),
+                )
                 for con_id in range(data.ncon):
                     contact = data.contact[con_id]
                     if {contact.geom1, contact.geom2} == {cue_tip_geom, cue_ball_geom} and first_contact is None:
@@ -173,6 +191,7 @@ def main() -> None:
     print(f"wrote={args.output}")
     print(f"cue_tip_delta={cue_tip_delta}")
     print(f"first_contact_time={first_contact}")
+    print(f"peak_cue_ball_speed={peak_cue_ball_speed:.6f}")
 
 
 if __name__ == "__main__":

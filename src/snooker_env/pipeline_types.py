@@ -67,6 +67,15 @@ class VisionState:
 
 
 @dataclass(frozen=True)
+class RobotState:
+    """Policy-facing robot proprioception in model joint order."""
+
+    joint_names: tuple[str, ...]
+    joint_positions: FloatArray
+    joint_velocities: FloatArray
+
+
+@dataclass(frozen=True)
 class SceneState:
     """Policy-facing state snapshot."""
 
@@ -75,6 +84,7 @@ class SceneState:
     balls: Mapping[str, BallState]
     cue_pose: Pose3D | None = None
     cue_velocity: FloatArray | None = None
+    robot: RobotState | None = None
     robot_mode: RobotMode = RobotMode.WALKING
     vision: VisionState | None = None
 
@@ -108,6 +118,7 @@ class CueCommand:
     pose: Pose3D
     linear_velocity: FloatArray
     angular_velocity: FloatArray
+    duration: float = 0.05
     debug_label: str | None = None
 
 

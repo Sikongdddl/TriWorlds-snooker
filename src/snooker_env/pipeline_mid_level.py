@@ -113,6 +113,7 @@ class _BaseShotPolicy(MidLevelSkill):
             pose=pose,
             linear_velocity=direction * speed,
             angular_velocity=np.zeros(3, dtype=np.float64),
+            duration=float(command.params.get("command_duration", 0.05)),
             debug_label=self.skill_id.value,
         )
 

@@ -1,6 +1,6 @@
 <mujoco model="pool_table_traditional_asset_scene">
   <compiler angle="radian" coordinate="local" autolimits="true" />
-  <option timestep="0.001" gravity="0 0 -9.81" integrator="RK4" solver="Newton" iterations="80" />
+  <option timestep="0.00025" gravity="0 0 -9.81" integrator="RK4" solver="Newton" iterations="80" />
   <visual>
     <headlight ambient="0.45 0.45 0.45" diffuse="0.8 0.8 0.8" specular="0.25 0.25 0.25" />
   </visual>
