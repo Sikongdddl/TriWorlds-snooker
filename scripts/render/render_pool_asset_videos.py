@@ -60,7 +60,7 @@ def _write_video(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Render several videos for the Sketchfab pool table asset scene.")
+    parser = argparse.ArgumentParser(description="Render several videos for the mujoco-billiards table scene.")
     parser.add_argument("--model", type=Path, default=project_root() / "models" / "scene_pool_asset.xml")
     parser.add_argument("--output-dir", type=Path, default=project_root() / "outputs" / "videos_pool_asset")
     parser.add_argument("--width", type=int, default=1280)
@@ -76,19 +76,19 @@ def main() -> None:
     set_lift_grip_ready_pose(model, data)
 
     def orbit(t: float) -> mujoco.MjvCamera:
-        return _camera(3.2, -135.0 + 360.0 * t, -24.0, (0.0, 0.0, 0.75))
+        return _camera(3.6, -135.0 + 360.0 * t, -24.0, (0.0, 0.0, 1.05))
 
     def pocket_sweep(t: float) -> mujoco.MjvCamera:
         az = -82.0 + 34.0 * math.sin(2.0 * math.pi * t)
         dist = 1.95 - 0.25 * math.sin(math.pi * t)
-        return _camera(dist, az, -12.0, (-0.48 + 0.95 * t, -0.25, 0.62))
+        return _camera(dist, az, -12.0, (-0.58 + 1.16 * t, 0.0, 1.05))
 
     def cue_lane(t: float) -> mujoco.MjvCamera:
-        return _camera(1.75, -92.0, -8.0, (-0.75 + 1.35 * t, -0.03, 0.68))
+        return _camera(2.15, 0.0, -10.0, (0.0, -0.90 + 1.80 * t, 1.05))
 
     def lift_table_side(t: float) -> mujoco.MjvCamera:
         az = 35.0 + 18.0 * math.sin(2.0 * math.pi * t)
-        return _camera(2.55, az, -16.0, (-0.05, 0.72, 0.68))
+        return _camera(2.55, az, -16.0, (0.0, -0.90, 1.05))
 
     jobs = {
         "pool_asset_orbit_detail.mp4": orbit,

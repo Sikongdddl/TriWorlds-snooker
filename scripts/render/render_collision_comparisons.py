@@ -17,6 +17,11 @@ ROOT = add_src_to_path()
 
 from snooker_env.contact_events import CollisionEventMonitor  # noqa: E402
 from snooker_env.init_pose import set_lift_grip_ready_pose  # noqa: E402
+from snooker_env.table_geometry import (  # noqa: E402
+    BALL_CENTER_Z,
+    cloth_geom_ids,
+    cushion_geom_ids,
+)
 
 
 @dataclass
@@ -52,6 +57,8 @@ def _configure_baseline(model: mujoco.MjModel) -> None:
     """Recreate the pre-calibration collision settings in memory."""
 
     model.opt.timestep = 0.001
+    cloth = set(cloth_geom_ids(model))
+    cushions = set(cushion_geom_ids(model))
     for geom_id, name in enumerate(_geom_names(model)):
         if name == "cue_ball_geom" or name.startswith("object_ball_") and name.endswith("_geom"):
             model.geom_priority[geom_id] = 2
@@ -59,24 +66,12 @@ def _configure_baseline(model: mujoco.MjModel) -> None:
             model.geom_friction[geom_id] = (0.18, 0.004, 0.00008)
             model.geom_solref[geom_id] = (0.0025, 1.0)
             model.geom_solimp[geom_id] = (0.95, 0.99, 0.001, 0.5, 2.0)
-        elif name == "playfield_collision":
+        elif geom_id in cloth:
             model.geom_priority[geom_id] = 0
             model.geom_condim[geom_id] = 3
             model.geom_friction[geom_id] = (0.18, 0.004, 0.00008)
             model.geom_solref[geom_id] = (0.003, 1.0)
-        elif name.startswith("cushion_nose_"):
-            # Keep the compiled rail collision active, but give it the old
-            # low-priority settings so the ball geom overrides the contact.
-            model.geom_contype[geom_id] = 1
-            model.geom_conaffinity[geom_id] = 2
-            model.geom_priority[geom_id] = 0
-            model.geom_condim[geom_id] = 3
-            model.geom_friction[geom_id] = (0.35, 0.006, 0.0001)
-            model.geom_solref[geom_id] = (0.02, 1.0)
-        elif name.startswith("pocket_catch_") or name.startswith("pocket_wall_"):
-            model.geom_contype[geom_id] = 0
-            model.geom_conaffinity[geom_id] = 0
-        elif name.startswith("cushion_"):
+        elif geom_id in cushions:
             model.geom_contype[geom_id] = 1
             model.geom_conaffinity[geom_id] = 2
             model.geom_priority[geom_id] = 0
@@ -100,16 +95,16 @@ def _camera(scenario: str) -> mujoco.MjvCamera:
     camera.azimuth = -90.0
     if scenario == "ball_ball":
         camera.distance, camera.elevation = 1.55, -55.0
-        camera.lookat[:] = (-0.02, 0.0, 0.78)
+        camera.lookat[:] = (0.0, -0.20, 1.08)
     elif scenario == "cushion":
         camera.distance, camera.elevation = 1.55, -52.0
-        camera.lookat[:] = (-0.35, 0.20, 0.78)
+        camera.lookat[:] = (0.20, -0.20, 1.08)
     elif scenario == "pocket":
         camera.distance, camera.elevation = 1.35, -25.0
-        camera.lookat[:] = (0.0, 0.55, 0.73)
+        camera.lookat[:] = (0.50, 0.0, 1.05)
     else:
         camera.distance, camera.elevation = 2.05, -72.0
-        camera.lookat[:] = (0.58, 0.0, 0.78)
+        camera.lookat[:] = (0.0, 0.45, 1.08)
     return camera
 
 
@@ -131,16 +126,16 @@ def _set_free_joint(
 
 def _setup(model: mujoco.MjModel, data: mujoco.MjData, scenario: str) -> None:
     if scenario == "ball_ball":
-        _set_free_joint(model, data, "cue_ball_free", (-0.42, 0.0, 0.789575), (3.0, 0.0, 0.0))
-        _set_free_joint(model, data, "object_ball_0_free", (0.02, 0.0, 0.789575))
+        _set_free_joint(model, data, "cue_ball_free", (0.0, -0.42, BALL_CENTER_Z), (0.0, 3.0, 0.0))
+        _set_free_joint(model, data, "object_ball_0_free", (0.0, 0.02, BALL_CENTER_Z))
     elif scenario == "cushion":
-        _set_free_joint(model, data, "cue_ball_free", (-0.40, 0.20, 0.789575), (0.45, 1.50, 0.0))
-        _set_free_joint(model, data, "object_ball_0_free", (0.70, -0.20, 0.789575))
+        _set_free_joint(model, data, "cue_ball_free", (0.20, -0.40, BALL_CENTER_Z), (1.50, 0.45, 0.0))
+        _set_free_joint(model, data, "object_ball_0_free", (-0.45, 0.70, BALL_CENTER_Z))
     elif scenario == "pocket":
-        _set_free_joint(model, data, "cue_ball_free", (0.0, 0.32, 0.789575), (0.0, 0.80, 0.0))
-        _set_free_joint(model, data, "object_ball_0_free", (0.70, -0.20, 0.789575))
+        _set_free_joint(model, data, "cue_ball_free", (0.40, 0.0, BALL_CENTER_Z), (0.80, 0.0, 0.0))
+        _set_free_joint(model, data, "object_ball_0_free", (-0.45, 0.70, BALL_CENTER_Z))
     elif scenario == "break":
-        _set_free_joint(model, data, "cue_ball_free", (0.20, 0.0, 0.789575), (3.0, 0.0, 0.0))
+        _set_free_joint(model, data, "cue_ball_free", (0.0, -0.20, BALL_CENTER_Z), (0.0, 3.0, 0.0))
     else:
         raise ValueError(scenario)
     mujoco.mj_forward(model, data)

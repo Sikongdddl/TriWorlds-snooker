@@ -43,7 +43,7 @@ class SnookerPipeline:
             first_intent = skills[0].intent
             stroke_direction = next(
                 (command.linear_velocity for command in cue_commands if np.linalg.norm(command.linear_velocity) > 1e-9),
-                np.array([1.0, 0.0, 0.0], dtype=np.float64),
+                np.array([0.0, 1.0, 0.0], dtype=np.float64),
             )
             body_position = self.body_positioning.plan(
                 cue_commands[0].pose,

@@ -1,72 +1,85 @@
 <mujoco>
-  <asset>
-    <material name="ball_white_mat" rgba="0.96 0.94 0.86 1"/>
-    <material name="ball_yellow_mat" rgba="0.95 0.72 0.08 1"/>
-    <material name="ball_blue_mat" rgba="0.05 0.20 0.78 1"/>
-    <material name="ball_red_mat" rgba="0.82 0.06 0.04 1"/>
-    <material name="ball_purple_mat" rgba="0.45 0.12 0.70 1"/>
-    <material name="ball_orange_mat" rgba="0.95 0.38 0.05 1"/>
-    <material name="ball_green_mat" rgba="0.05 0.48 0.18 1"/>
-    <material name="ball_black_mat" rgba="0.02 0.02 0.018 1"/>
-  </asset>
-
-  <default>
-    <default class="pool_ball">
-      <geom type="sphere" size="0.028575" mass="0.170"
-            contype="2" conaffinity="7" condim="3" priority="0"
-            friction="0 0 0" solref="-1e7 -100"
-            solimp="0.95 0.99 0.001"/>
-      <joint damping="0.0001"/>
-    </default>
-  </default>
-
   <worldbody>
-    <body name="cue_ball" pos="-0.616 0 0.7898">
+    <body name="cue_ball" pos="0 -0.616 1.0785">
       <freejoint name="cue_ball_free"/>
-      <geom name="cue_ball_geom" class="pool_ball" material="ball_white_mat"/>
-      <site name="cue_ball_center" pos="0 0 0" size="0.004" rgba="0.1 0.1 1 1"/>
+      <!-- Same cue-ball construction as the source one-ball.xml/nine-ball.xml:
+           the source ball class plus six red rotation markers. -->
+      <geom name="cue_ball_geom" class="ball" pos="0 0 0" rgba="1 1 1 1"/>
+      <site name="cue_ball_marker_pos_x" type="cylinder" size="0.004 0.001"
+            rgba="1 0 0 1" pos="0.0275 0 0" zaxis="1 0 0"/>
+      <site name="cue_ball_marker_neg_x" type="cylinder" size="0.004 0.001"
+            rgba="1 0 0 1" pos="-0.0275 0 0" zaxis="1 0 0"/>
+      <site name="cue_ball_marker_pos_y" type="cylinder" size="0.004 0.001"
+            rgba="1 0 0 1" pos="0 0.0275 0" zaxis="0 1 0"/>
+      <site name="cue_ball_marker_neg_y" type="cylinder" size="0.004 0.001"
+            rgba="1 0 0 1" pos="0 -0.0275 0" zaxis="0 1 0"/>
+      <site name="cue_ball_marker_pos_z" type="cylinder" size="0.004 0.001"
+            rgba="1 0 0 1" pos="0 0 0.0275"/>
+      <site name="cue_ball_marker_neg_z" type="cylinder" size="0.004 0.001"
+            rgba="1 0 0 1" pos="0 0 -0.0275"/>
     </body>
-    <body name="object_ball_0" pos="0.5498 0 0.7900">
+
+    <!-- Fifteen-ball rack. Adjacent centers are 58 mm apart, matching the
+         source scenarios and leaving a 1 mm initialization clearance. -->
+    <body name="object_ball_0" pos="0.000 0.6350000 1.0785">
       <freejoint name="object_ball_0_free"/>
-      <geom name="object_ball_0_geom" class="pool_ball" material="ball_yellow_mat"/>
+      <geom name="object_ball_0_geom" class="ball" euler="0 0 180" material="mat-billiards-01"/>
     </body>
-    <!-- Triangular rack spacing is one ball diameter (0.05715 m) plus a
-         0.00050 m safety gap, avoiding initial contact penetration. -->
-    <body name="object_ball_1" pos="0.5997264 0.0288250 0.7900">
+    <body name="object_ball_1" pos="-0.029 0.6852294734 1.0785">
       <freejoint name="object_ball_1_free"/>
-      <geom name="object_ball_1_geom" class="pool_ball" material="ball_blue_mat"/>
+      <geom name="object_ball_1_geom" class="ball" euler="0 0 180" material="mat-billiards-02"/>
     </body>
-    <body name="object_ball_2" pos="0.5997264 -0.0288250 0.7900">
+    <body name="object_ball_2" pos="0.029 0.6852294734 1.0785">
       <freejoint name="object_ball_2_free"/>
-      <geom name="object_ball_2_geom" class="pool_ball" material="ball_red_mat"/>
+      <geom name="object_ball_2_geom" class="ball" euler="0 0 180" material="mat-billiards-03"/>
     </body>
-    <body name="object_ball_3" pos="0.6496527 0.0576500 0.7900">
+    <body name="object_ball_3" pos="-0.058 0.7354589468 1.0785">
       <freejoint name="object_ball_3_free"/>
-      <geom name="object_ball_3_geom" class="pool_ball" material="ball_purple_mat"/>
+      <geom name="object_ball_3_geom" class="ball" euler="0 0 180" material="mat-billiards-04"/>
     </body>
-    <body name="object_ball_4" pos="0.6496527 0.0000000 0.7900">
+    <body name="object_ball_4" pos="0.000 0.7354589468 1.0785">
       <freejoint name="object_ball_4_free"/>
-      <geom name="object_ball_4_geom" class="pool_ball" material="ball_black_mat"/>
+      <geom name="object_ball_4_geom" class="ball" euler="0 0 180" material="mat-billiards-05"/>
     </body>
-    <body name="object_ball_5" pos="0.6496527 -0.0576500 0.7900">
+    <body name="object_ball_5" pos="0.058 0.7354589468 1.0785">
       <freejoint name="object_ball_5_free"/>
-      <geom name="object_ball_5_geom" class="pool_ball" material="ball_orange_mat"/>
+      <geom name="object_ball_5_geom" class="ball" euler="0 0 180" material="mat-billiards-06"/>
     </body>
-    <body name="object_ball_6" pos="0.6995791 0.0864750 0.7900">
+    <body name="object_ball_6" pos="-0.087 0.7856884203 1.0785">
       <freejoint name="object_ball_6_free"/>
-      <geom name="object_ball_6_geom" class="pool_ball" material="ball_green_mat"/>
+      <geom name="object_ball_6_geom" class="ball" euler="0 0 180" material="mat-billiards-07"/>
     </body>
-    <body name="object_ball_7" pos="0.6995791 0.0288250 0.7900">
+    <body name="object_ball_7" pos="-0.029 0.7856884203 1.0785">
       <freejoint name="object_ball_7_free"/>
-      <geom name="object_ball_7_geom" class="pool_ball" material="ball_yellow_mat"/>
+      <geom name="object_ball_7_geom" class="ball" euler="0 0 180" material="mat-billiards-08"/>
     </body>
-    <body name="object_ball_8" pos="0.6995791 -0.0288250 0.7900">
+    <body name="object_ball_8" pos="0.029 0.7856884203 1.0785">
       <freejoint name="object_ball_8_free"/>
-      <geom name="object_ball_8_geom" class="pool_ball" material="ball_blue_mat"/>
+      <geom name="object_ball_8_geom" class="ball" euler="0 0 180" material="mat-billiards-09"/>
     </body>
-    <body name="object_ball_9" pos="0.6995791 -0.0864750 0.7900">
+    <body name="object_ball_9" pos="0.087 0.7856884203 1.0785">
       <freejoint name="object_ball_9_free"/>
-      <geom name="object_ball_9_geom" class="pool_ball" material="ball_red_mat"/>
+      <geom name="object_ball_9_geom" class="ball" euler="0 0 180" material="mat-billiards-10"/>
+    </body>
+    <body name="object_ball_10" pos="-0.116 0.8359178937 1.0785">
+      <freejoint name="object_ball_10_free"/>
+      <geom name="object_ball_10_geom" class="ball" euler="0 0 180" material="mat-billiards-11"/>
+    </body>
+    <body name="object_ball_11" pos="-0.058 0.8359178937 1.0785">
+      <freejoint name="object_ball_11_free"/>
+      <geom name="object_ball_11_geom" class="ball" euler="0 0 180" material="mat-billiards-12"/>
+    </body>
+    <body name="object_ball_12" pos="0.000 0.8359178937 1.0785">
+      <freejoint name="object_ball_12_free"/>
+      <geom name="object_ball_12_geom" class="ball" euler="0 0 180" material="mat-billiards-13"/>
+    </body>
+    <body name="object_ball_13" pos="0.058 0.8359178937 1.0785">
+      <freejoint name="object_ball_13_free"/>
+      <geom name="object_ball_13_geom" class="ball" euler="0 0 180" material="mat-billiards-14"/>
+    </body>
+    <body name="object_ball_14" pos="0.116 0.8359178937 1.0785">
+      <freejoint name="object_ball_14_free"/>
+      <geom name="object_ball_14_geom" class="ball" euler="0 0 180" material="mat-billiards-15"/>
     </body>
   </worldbody>
 </mujoco>

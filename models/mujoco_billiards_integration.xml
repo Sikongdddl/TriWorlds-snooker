@@ -1,0 +1,12 @@
+<mujoco>
+  <worldbody>
+    <!-- Named sites supplement the unmodified source XML for project-level
+         pocket event detection. They do not affect rendering or contacts. -->
+    <site name="pocket_corner_negx_negy" pos="-0.675 -1.31 1.05" size="0.060" group="3" rgba="1 0.8 0.05 0.18"/>
+    <site name="pocket_corner_negx_posy" pos="-0.675 1.31 1.05" size="0.060" group="3" rgba="1 0.8 0.05 0.18"/>
+    <site name="pocket_corner_posx_negy" pos="0.675 -1.31 1.05" size="0.060" group="3" rgba="1 0.8 0.05 0.18"/>
+    <site name="pocket_corner_posx_posy" pos="0.675 1.31 1.05" size="0.060" group="3" rgba="1 0.8 0.05 0.18"/>
+    <site name="pocket_middle_negx" pos="-0.717426 0 1.05" size="0.060" group="3" rgba="1 0.8 0.05 0.18"/>
+    <site name="pocket_middle_posx" pos="0.717426 0 1.05" size="0.060" group="3" rgba="1 0.8 0.05 0.18"/>
+  </worldbody>
+</mujoco>

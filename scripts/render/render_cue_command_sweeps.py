@@ -203,7 +203,7 @@ def _cases(group: str) -> tuple[SweepCase, ...]:
             SweepCase("angular velocity wz: +0.30 rad/s", group, np.array([0.0, 0.0, 0.30]), 0.7),
         )
     if group == "duration":
-        displacement = np.array([0.060, 0.0, 0.0])
+        displacement = np.array([0.0, 0.060, 0.0])
         return (
             SweepCase("duration: 0.30 s", group, displacement, 0.30),
             SweepCase("duration: 0.70 s", group, displacement, 0.70),

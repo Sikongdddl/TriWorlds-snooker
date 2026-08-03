@@ -70,7 +70,7 @@ def run_smoke(model_path: Path, duration: float, strike_speed: float, keep_grip_
     cue_ball_dof = int(model.jnt_dofadr[cue_ball_joint])
     start_pos = data.qpos[cue_ball_qpos:cue_ball_qpos + 3].copy()
 
-    data.qvel[cue_dof:cue_dof + 3] = np.array([strike_speed, 0.0, 0.0])
+    data.qvel[cue_dof:cue_dof + 3] = np.array([0.0, strike_speed, 0.0])
     data.qvel[cue_dof + 3:cue_dof + 6] = 0.0
     mujoco.mj_forward(model, data)
     tip_speed = float(np.linalg.norm(_site_velocity(model, data, cue_tip_site)))

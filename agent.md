@@ -1,43 +1,36 @@
 # Agent Notes
 
-This project is `/home/ubuntu/jrWork/snooker_mujoco`, a MuJoCo scaffold for robot billiards/snooker simulation.
+This project is `/home/ubuntu/TriWorlds-snooker`, a MuJoCo scaffold for robot billiards/snooker simulation.
 
 ## Environment
 
 Use the existing conda environment:
 
 ```bash
-CONDA_NO_PLUGINS=true conda run -n metaworld python ...
+conda activate pool
 ```
 
-Verified in `metaworld`:
+The active table requires the custom source SDF plugin. Rebuild it after replacing or upgrading MuJoCo:
 
-- Python 3.10.4
-- NumPy 1.24.4
-- MuJoCo 3.5.0
-- imageio 2.20.0
-- torch 2.2.2+cu121
-- CUDA works only outside the sandbox / with elevated execution.
-
-Inside the sandbox, `torch.cuda.is_available()` may be false even when the host GPU is available. Use elevated execution for GPU checks or rendering.
-
-Do not use the `mujoco` conda environment for RL work unless it is updated: it can run MuJoCo smoke tests, but torch/imageio were missing when last checked.
+```bash
+python scripts/assets/build_mujoco_billiards_sdf_plugin.py
+```
 
 ## Core Commands
 
 Run these from project root:
 
 ```bash
-CONDA_NO_PLUGINS=true conda run -n metaworld python scripts/tools/inspect_model.py
-CONDA_NO_PLUGINS=true conda run -n metaworld python scripts/smoke_tests/run_midlevel_env_smoke.py
-CONDA_NO_PLUGINS=true conda run -n metaworld python scripts/smoke_tests/midlevel_curriculum_smoke.py
-CONDA_NO_PLUGINS=true conda run -n metaworld python scripts/smoke_tests/pipeline_smoke.py
+python scripts/tools/inspect_model.py
+python scripts/smoke_tests/run_midlevel_env_smoke.py
+python scripts/smoke_tests/midlevel_curriculum_smoke.py
+python scripts/smoke_tests/pipeline_smoke.py
 ```
 
 Rendering requires EGL/GPU access:
 
 ```bash
-MUJOCO_GL=egl CONDA_NO_PLUGINS=true conda run -n metaworld python scripts/render/render_midlevel_env_stroke.py
+MUJOCO_GL=egl python scripts/render/render_midlevel_env_stroke.py
 ```
 
 ## Script Layout
@@ -49,15 +42,15 @@ MUJOCO_GL=egl CONDA_NO_PLUGINS=true conda run -n metaworld python scripts/render
 
 ## Model Layout
 
-Visual assets and MuJoCo physics stay separate.
-
-- `assets/table/pool_table_traditional`: downloaded Sketchfab table asset.
+- `/home/ubuntu/mujoco-billiards/ball-definitions.xml`: ball class and numbered materials loaded directly by both active scenes; textures resolve from its `img/` directory.
+- `assets/table/mujoco_billiards`: retained source attribution; it is not the active ball-texture path.
+- `assets/table/pool_table_traditional`: legacy Sketchfab source retained for the cue asset and its license.
 - `assets/cue/sketchfab_pool_table_traditional`: localized Sketchfab cue visual mesh.
-- `models/pool_table_asset.xml`: visual table wrapper.
-- `models/table_physics.xml`: hidden playfield/cushion/pocket proxy physics.
+- `models/mujoco_billiards/billiard-table-definitions.xml`: exact source table XML, including checker floor, four lights, SDF pockets, rails, and collision geometry.
+- `models/mujoco_billiards_integration.xml`: project-only named pocket sites; it does not alter source rendering or contacts.
 - `models/cue_physics.xml`: dynamic cue body; Sketchfab visual mesh plus primitive `cue_shaft` and `cue_tip`.
-- `models/balls_physics.xml`: full scene billiard balls.
-- `models/midlevel_train_scene.xml`: robot-free midlevel training scene with visual table, table physics proxy, cue, cue ball, and one object ball.
+- `models/balls_physics.xml`: source-class marked cue ball and full numbered rack with project-stable names.
+- `models/midlevel_train_scene.xml`: robot-free midlevel training scene with the source table, cue, cue ball, and one object ball.
 - `models/midlevel_balls.xml`: two-ball asset for midlevel training.
 - `models/lift_articulated.xml`: articulated LIFT scaffold.
 - `models/grip_constraints.xml`: current soft equality constraints from LIFT TCPs to cue grip sites.
@@ -119,21 +112,21 @@ RL should observe the actual executed result. Projection count is diagnostic; it
 
 ## Important Caveats
 
-- The default scene uses an 8-foot pool table asset, not regulation snooker dimensions.
-- Table collision is still an approximate hidden proxy.
-- Pocket visuals exist, but pocket sensors / pocket wells / ball removal are not implemented.
-- Ball/cloth/cushion/cue-tip friction and restitution are placeholders, not calibrated.
+- The default scene uses a 9-foot pool table, not regulation snooker dimensions.
+- The source table requires the installed `libsdf_plugin.so`; model loading fails if the plugin is absent or incompatible.
+- Pocket regions and entry events exist, but ball removal is not implemented.
+- The source table uses `+Y` as its long axis, `+X` as its short axis, and `z=1.05` m as the cloth surface.
 - Current midlevel env assumes an ideal cue controller, not the dual-arm robot.
 - The full LIFT scene still uses scaffold grip constraints and not solved IK/control.
 - Avoid training policies that rely on cue penetration or arbitrary free-joint teleportation.
 
 ## Current Good Smoke Tests
 
-These passed in `metaworld`:
+These should be run in `pool`:
 
 ```bash
-CONDA_NO_PLUGINS=true conda run -n metaworld python scripts/smoke_tests/run_midlevel_env_smoke.py
-CONDA_NO_PLUGINS=true conda run -n metaworld python scripts/smoke_tests/midlevel_curriculum_smoke.py
+python scripts/smoke_tests/run_midlevel_env_smoke.py
+python scripts/smoke_tests/midlevel_curriculum_smoke.py
 ```
 
 Expected midlevel smoke characteristics:

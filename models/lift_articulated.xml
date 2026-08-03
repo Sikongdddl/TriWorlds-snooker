@@ -1,5 +1,4 @@
 <mujoco model="lift">
-  <compiler angle="radian" />
   <asset>
     <mesh name="base_link" content_type="model/stl" file="../assets/robots/lift_urdf_meshes/lift/base_link.stl" scale="0.001 0.001 0.001" />
     <mesh name="wheel_1" content_type="model/stl" file="../assets/robots/lift_urdf_meshes/lift/wheel_1.stl" scale="0.001 0.001 0.001" />
@@ -20,7 +19,7 @@
     <mesh name="arm_link1" content_type="model/stl" file="../assets/robots/lift_urdf_meshes/lift/arm_link1.stl" scale="0.001 0.001 0.001" />
   </asset>
   <worldbody>
-    <body name="lift_articulated_root" pos="-1.514 0.346 0.05" euler="0 0 1.57079632679">
+    <body name="lift_articulated_root" pos="-0.346 -1.514 0.05" quat="0 0 0 1">
       <geom pos="-0.0258944 -0.0914315 0.0591168" quat="0.707107 0 0 -0.707107" type="mesh" rgba="0.7 0.7 0.7 1" mesh="base_link" contype="0" conaffinity="0" />
       <body name="wheel_1" pos="-0.182349 0.315838 0.03">
         <inertial pos="-0.00130522 0.00225987 1.31897e-07" quat="0.49998 0 0 0.866037" mass="4.24803" diaginertia="0.012236 0.00662904 0.006629" />

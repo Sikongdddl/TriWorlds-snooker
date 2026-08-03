@@ -15,9 +15,10 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from snooker_env.midlevel_env import DEFAULT_MIDLEVEL_MODEL, MidLevelCueEnv  # noqa: E402
 from snooker_env.pipeline_types import CueCommand, Pose3D  # noqa: E402
+from snooker_env.table_geometry import BALL_CENTER_Z  # noqa: E402
 
 
-BALL_RADIUS = 0.028575
+BALL_RADIUS = 0.0285
 CUE_TIP_OFFSET = 0.725
 CUE_TIP_RADIUS = 0.009
 
@@ -64,8 +65,8 @@ def _make_command(cue_ball_pos: np.ndarray, speed: float, offset_z: float, eleva
 def _run_case(args: argparse.Namespace, speed: float, offset_z: float, object_x: float) -> tuple[float, float, float, float | None, float | None, bool]:
     env = MidLevelCueEnv(args.model, action_repeat=args.action_repeat)
     env.reset()
-    cue_start = np.array([args.cue_ball_x, 0.0, 0.7898], dtype=np.float64)
-    object_start = np.array([object_x, 0.0, 0.7898], dtype=np.float64)
+    cue_start = np.array([args.cue_ball_x, 0.0, BALL_CENTER_Z], dtype=np.float64)
+    object_start = np.array([object_x, 0.0, BALL_CENTER_Z], dtype=np.float64)
     _set_ball(env, "cue_ball_free", cue_start)
     _set_ball(env, "object_ball_0_free", object_start)
     mujoco.mj_forward(env.model, env.data)
@@ -131,15 +132,15 @@ def _run_case(args: argparse.Namespace, speed: float, offset_z: float, object_x:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", type=Path, default=DEFAULT_MIDLEVEL_MODEL)
-    parser.add_argument("--cue-ball-x", type=float, default=-0.616)
+    parser.add_argument("--cue-ball-x", type=float, default=-0.35)
     parser.add_argument("--gap", type=float, default=0.004)
     parser.add_argument("--elevation", type=float, default=np.deg2rad(8.0))
-    parser.add_argument("--action-repeat", type=int, default=480)
+    parser.add_argument("--action-repeat", type=int, default=12000)
     parser.add_argument("--settle-time", type=float, default=1.2)
     parser.add_argument("--rail-guard-x", type=float, default=0.85)
     parser.add_argument("--speeds", type=float, nargs="*", default=[0.8, 1.0, 1.2, 1.5, 1.8, 2.2, 2.6])
     parser.add_argument("--offsets", type=float, nargs="*", default=[-0.008, -0.010, -0.012, -0.014, -0.016])
-    parser.add_argument("--object-xs", type=float, nargs="*", default=[-0.42, -0.36, -0.30, -0.24, -0.18])
+    parser.add_argument("--object-xs", type=float, nargs="*", default=[-0.10, -0.04, 0.02, 0.08, 0.14])
     args = parser.parse_args()
 
     print("speed  offset_z object_x  final_vx  post_min_vx post_min_x final_dx  cue_t  ball_t  unstable")

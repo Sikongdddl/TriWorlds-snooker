@@ -16,6 +16,7 @@ add_src_to_path()
 from snooker_env.midlevel_env import DEFAULT_MIDLEVEL_MODEL, MidLevelCueEnv  # noqa: E402
 from snooker_env.pipeline_mid_level import PotShotPolicy  # noqa: E402
 from snooker_env.pipeline_types import ShotIntent, SkillCommand, SkillId  # noqa: E402
+from snooker_env.table_geometry import BALL_CENTER_Z  # noqa: E402
 
 
 def _camera() -> mujoco.MjvCamera:
@@ -25,7 +26,7 @@ def _camera() -> mujoco.MjvCamera:
     camera.distance = 2.25
     camera.azimuth = -92.0
     camera.elevation = -18.0
-    camera.lookat[:] = (-0.35, 0.05, 0.79)
+    camera.lookat[:] = (0.0, -0.25, 1.05)
     return camera
 
 
@@ -46,10 +47,10 @@ def main() -> None:
     parser.add_argument("--fps", type=int, default=30)
     parser.add_argument("--settle-time", type=float, default=1.2)
     parser.add_argument("--target-speed", type=float, default=0.45)
-    parser.add_argument("--cue-ball-x", type=float, default=-0.616)
-    parser.add_argument("--cue-ball-y", type=float, default=0.0)
-    parser.add_argument("--object-ball-x", type=float, default=-0.18)
-    parser.add_argument("--object-ball-y", type=float, default=0.0)
+    parser.add_argument("--cue-ball-x", type=float, default=0.0)
+    parser.add_argument("--cue-ball-y", type=float, default=-0.616)
+    parser.add_argument("--object-ball-x", type=float, default=-0.08)
+    parser.add_argument("--object-ball-y", type=float, default=0.15)
     args = parser.parse_args()
 
     env = MidLevelCueEnv(args.model)
@@ -63,7 +64,7 @@ def main() -> None:
             raise ValueError(f"Missing joint: {joint_name}")
         qpos_adr = int(env.model.jnt_qposadr[joint_id])
         dof_adr = int(env.model.jnt_dofadr[joint_id])
-        env.data.qpos[qpos_adr:qpos_adr + 3] = np.array([xy[0], xy[1], 0.7898], dtype=np.float64)
+        env.data.qpos[qpos_adr:qpos_adr + 3] = np.array([xy[0], xy[1], BALL_CENTER_Z], dtype=np.float64)
         env.data.qvel[dof_adr:dof_adr + 6] = 0.0
     mujoco.mj_forward(env.model, env.data)
     state = env.scene_state()

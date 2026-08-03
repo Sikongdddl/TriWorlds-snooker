@@ -50,7 +50,7 @@ def main() -> None:
         raise RuntimeError("Nominal zero-residual rollout hit a failure condition.")
     if not truncated or not info["success"]:
         raise RuntimeError("Nominal zero-residual rollout did not complete successfully.")
-    if final_position[0] - start_position[0] < 0.01:
+    if final_position[1] - start_position[1] < 0.01:
         raise RuntimeError("Nominal controller did not move the cue along the commanded stroke.")
 
     env.close()
@@ -58,4 +58,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

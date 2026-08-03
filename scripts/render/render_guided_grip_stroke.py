@@ -55,7 +55,7 @@ def _camera() -> mujoco.MjvCamera:
     cam.distance = 2.15
     cam.azimuth = -38.0
     cam.elevation = -14.0
-    cam.lookat[:] = (-0.75, 0.18, 0.78)
+    cam.lookat[:] = (0.0, -0.90, 1.08)
     return cam
 
 
@@ -99,7 +99,7 @@ def _guided_step(
     damping: float,
     max_step: float,
 ) -> None:
-    offset = np.array([stroke * phase, 0.0, 0.0])
+    offset = np.array([0.0, stroke * phase, 0.0])
     mujoco.mj_forward(model, data)
 
     residuals: list[np.ndarray] = []

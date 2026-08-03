@@ -57,9 +57,9 @@ def _render_png(
 
 def render_images(model: mujoco.MjModel, data: mujoco.MjData, output_dir: Path, width: int, height: int) -> None:
     views = {
-        "overview": (4.6, -130.0, -28.0, (0.0, 0.15, 0.75)),
-        "robot_table_side": (3.2, -35.0, -18.0, (-0.15, 0.65, 0.82)),
-        "strike_lane": (2.4, -88.0, -14.0, (-0.55, 0.05, 0.81)),
+        "overview": (4.6, -130.0, -28.0, (0.0, 0.0, 1.05)),
+        "robot_table_side": (3.2, -35.0, -18.0, (0.0, -0.75, 1.08)),
+        "strike_lane": (2.4, 0.0, -14.0, (0.0, -0.55, 1.08)),
     }
     for name, (distance, azimuth, elevation, lookat) in views.items():
         _render_png(
@@ -91,7 +91,7 @@ def render_video(
         for frame in range(frame_count):
             phase = 2.0 * math.pi * frame / frame_count
             azimuth = -135.0 + math.degrees(phase)
-            camera = _make_camera(4.2, azimuth, -24.0, (0.0, 0.25, 0.82))
+            camera = _make_camera(4.2, azimuth, -24.0, (0.0, 0.0, 1.05))
             mujoco.mj_step(model, data)
             renderer.update_scene(data, camera=camera)
             writer.append_data(renderer.render())

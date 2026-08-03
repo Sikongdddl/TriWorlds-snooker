@@ -7,6 +7,8 @@ from dataclasses import dataclass
 import mujoco
 import numpy as np
 
+from snooker_env.table_geometry import POCKET_ENTRY_Z, cloth_geom_ids, cushion_geom_ids
+
 
 @dataclass(frozen=True)
 class ContactEvent:
@@ -24,7 +26,7 @@ class ContactEvent:
 class CollisionEventMonitor:
     """Classify contact begins and detect balls that fall into pocket regions."""
 
-    def __init__(self, model: mujoco.MjModel, *, pocket_z: float = 0.745) -> None:
+    def __init__(self, model: mujoco.MjModel, *, pocket_z: float = POCKET_ENTRY_Z) -> None:
         self.model = model
         self.pocket_z = float(pocket_z)
         self.geom_names = tuple(
@@ -36,6 +38,8 @@ class CollisionEventMonitor:
             for index, name in enumerate(self.geom_names)
             if name == "cue_ball_geom" or name.startswith("object_ball_") and name.endswith("_geom")
         }
+        self.cloth_geom_ids = set(cloth_geom_ids(model))
+        self.cushion_geom_ids = set(cushion_geom_ids(model))
         self.ball_bodies = tuple(
             (name, mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, name))
             for name in ("cue_ball",) + tuple(f"object_ball_{index}" for index in range(16))
@@ -63,12 +67,11 @@ class CollisionEventMonitor:
             return "cue_shaft_ball"
         if ball_count == 2:
             return "ball_ball"
-        if ball_count and any(name.startswith("cushion_") for name in names):
+        table_geom_ids = {geom1, geom2} - self.ball_geom_ids
+        if ball_count and table_geom_ids & self.cushion_geom_ids:
             return "ball_cushion"
-        if ball_count and "playfield_collision" in names:
+        if ball_count and table_geom_ids & self.cloth_geom_ids:
             return "ball_cloth"
-        if ball_count and any(name.startswith("pocket_catch_") for name in names):
-            return "ball_pocket_floor"
         return "other"
 
     def scan(self, data: mujoco.MjData) -> tuple[ContactEvent, ...]:

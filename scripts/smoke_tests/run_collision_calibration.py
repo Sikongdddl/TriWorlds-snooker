@@ -13,6 +13,12 @@ add_src_to_path()
 
 from snooker_env.contact_events import CollisionEventMonitor  # noqa: E402
 from snooker_env.midlevel_env import DEFAULT_MIDLEVEL_MODEL  # noqa: E402
+from snooker_env.table_geometry import (  # noqa: E402
+    BALL_CENTER_Z,
+    POCKET_ENTRY_Z,
+    central_cloth_geom_id,
+    nearest_cushion_geom_id,
+)
 
 
 @dataclass(frozen=True)
@@ -37,6 +43,10 @@ def _joint_addresses(model: mujoco.MjModel, name: str) -> tuple[int, int]:
 
 def _only_collide(model: mujoco.MjModel, names: tuple[str, ...]) -> tuple[int, ...]:
     geom_ids = tuple(_id(model, mujoco.mjtObj.mjOBJ_GEOM, name) for name in names)
+    return _only_collide_ids(model, geom_ids)
+
+
+def _only_collide_ids(model: mujoco.MjModel, geom_ids: tuple[int, ...]) -> tuple[int, ...]:
     for geom_id in range(model.ngeom):
         if geom_id not in geom_ids:
             model.geom_contype[geom_id] = 0
@@ -95,14 +105,19 @@ def ball_ball_impact(speed: float = 3.0) -> ImpactResult:
 def cushion_impact(speed: float = 2.0) -> ImpactResult:
     model = mujoco.MjModel.from_xml_path(str(DEFAULT_MIDLEVEL_MODEL))
     model.opt.gravity[:] = 0.0
-    pair = _only_collide(model, ("cue_ball_geom", "cushion_nose_y_pos_left"))
+    ball_geom = _id(model, mujoco.mjtObj.mjOBJ_GEOM, "cue_ball_geom")
+    cushion_geom = nearest_cushion_geom_id(
+        model,
+        np.array([0.6825, -0.663787, 1.085], dtype=np.float64),
+    )
+    pair = _only_collide_ids(model, (ball_geom, cushion_geom))
     data = mujoco.MjData(model)
     cue_qpos, cue_dof = _joint_addresses(model, "cue_ball_free")
-    data.qpos[cue_qpos:cue_qpos + 3] = (-0.40, 0.35, 0.795)
-    data.qvel[cue_dof + 1] = speed
+    data.qpos[cue_qpos:cue_qpos + 3] = (0.35, -0.40, BALL_CENTER_Z)
+    data.qvel[cue_dof] = speed
     mujoco.mj_forward(model, data)
     penetration = _run_until_contact_ends(model, data, frozenset(pair), timeout=0.30)
-    outgoing = float(data.qvel[cue_dof + 1])
+    outgoing = float(data.qvel[cue_dof])
     return ImpactResult(
         restitution=-outgoing / speed,
         maximum_penetration=penetration,
@@ -113,11 +128,12 @@ def cushion_impact(speed: float = 2.0) -> ImpactResult:
 
 def rolling_speed_after(duration: float = 1.0, speed: float = 1.0) -> float:
     model = mujoco.MjModel.from_xml_path(str(DEFAULT_MIDLEVEL_MODEL))
-    _only_collide(model, ("cue_ball_geom", "playfield_collision"))
+    ball_geom = _id(model, mujoco.mjtObj.mjOBJ_GEOM, "cue_ball_geom")
+    _only_collide_ids(model, (ball_geom, central_cloth_geom_id(model)))
     data = mujoco.MjData(model)
     cue_qpos, cue_dof = _joint_addresses(model, "cue_ball_free")
     radius = float(model.geom_size[_id(model, mujoco.mjtObj.mjOBJ_GEOM, "cue_ball_geom"), 0])
-    data.qpos[cue_qpos:cue_qpos + 3] = (0.0, 0.0, 0.789575)
+    data.qpos[cue_qpos:cue_qpos + 3] = (0.0, 0.0, BALL_CENTER_Z)
     data.qvel[cue_dof] = speed
     # For +X translation, +Y angular velocity makes the bottom contact point
     # stationary: omega x (0, 0, -radius) cancels the linear velocity.
@@ -134,9 +150,9 @@ def middle_pocket_drop(speed: float = 0.80) -> tuple[bool, float]:
     monitor = CollisionEventMonitor(model)
     cue_qpos, cue_dof = _joint_addresses(model, "cue_ball_free")
     object_qpos, object_dof = _joint_addresses(model, "object_ball_0_free")
-    data.qpos[cue_qpos:cue_qpos + 3] = (0.0, 0.38, 0.789575)
-    data.qvel[cue_dof + 1] = speed
-    data.qpos[object_qpos:object_qpos + 3] = (0.70, 0.0, 0.789575)
+    data.qpos[cue_qpos:cue_qpos + 3] = (0.40, 0.0, BALL_CENTER_Z)
+    data.qvel[cue_dof] = speed
+    data.qpos[object_qpos:object_qpos + 3] = (0.0, 0.70, BALL_CENTER_Z)
     data.qvel[object_dof:object_dof + 6] = 0.0
     mujoco.mj_forward(model, data)
     minimum_z = float(data.qpos[cue_qpos + 2])
@@ -165,13 +181,13 @@ def main() -> None:
     print(f"rolling_speed_after_1s={rolling_speed:.6f} m/s")
     print(f"middle_pocketed={pocketed} minimum_ball_z={minimum_z:.6f} m")
 
-    if not 0.88 <= ball.restitution <= 0.99 or ball.maximum_penetration > 0.002:
-        raise RuntimeError("Ball-ball collision is outside the calibrated range.")
-    if not 0.65 <= cushion.restitution <= 0.90 or cushion.maximum_penetration > 0.002:
-        raise RuntimeError("Cushion collision is outside the calibrated range.")
+    if not 0.985 <= ball.restitution <= 1.005 or ball.maximum_penetration > 0.002:
+        raise RuntimeError("Ball-ball collision is outside the source-model range.")
+    if not 0.50 <= cushion.restitution <= 0.90 or cushion.maximum_penetration > 0.002:
+        raise RuntimeError("Cushion collision is outside the source-model range.")
     if not 0.0 < rolling_speed < 1.0:
         raise RuntimeError("Cloth rolling resistance did not reduce ball speed smoothly.")
-    if not pocketed or minimum_z >= 0.745:
+    if not pocketed or minimum_z >= POCKET_ENTRY_Z:
         raise RuntimeError("Ball did not enter the middle pocket region.")
 
 

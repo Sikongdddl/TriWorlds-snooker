@@ -1,19 +1,19 @@
-<mujoco model="midlevel_cue_ball_training_scene">
-  <compiler angle="radian" coordinate="local" autolimits="true"/>
-  <option timestep="0.00025" gravity="0 0 -9.81" integrator="RK4"
+<mujoco model="mujoco_billiards_midlevel_training_scene">
+  <include file="/home/ubuntu/mujoco-billiards/ball-definitions.xml"/>
+  <compiler angle="degree" coordinate="local" autolimits="true"
+            meshdir="/home/ubuntu/TriWorlds-snooker/models"
+            texturedir="/home/ubuntu/mujoco-billiards/img"/>
+  <option timestep="0.00002" gravity="0 0 -9.81" integrator="Euler"
           solver="Newton" iterations="80" tolerance="1e-8"/>
-
   <visual>
-    <headlight ambient="0.45 0.45 0.45" diffuse="0.8 0.8 0.8" specular="0.25 0.25 0.25"/>
+    <global offheight="720" offwidth="720"/>
   </visual>
-
   <worldbody>
-    <light name="midlevel_key_light" pos="0 -2.0 2.5" dir="0 0 -1" diffuse="0.9 0.9 0.86"/>
-    <camera name="midlevel_overview" pos="0 -2.4 1.5" xyaxes="1 0 0 0 0.55 0.84"/>
+    <camera name="cam1" pos="0 -2.0 2.5" euler="45 0 0"/>
+    <camera name="cam2" pos="0 0 4.3"/>
   </worldbody>
-
-  <include file="pool_table_asset.xml"/>
-  <include file="table_physics.xml"/>
+  <include file="mujoco_billiards/billiard-table-definitions.xml"/>
+  <include file="mujoco_billiards_integration.xml"/>
   <include file="midlevel_balls.xml"/>
   <include file="cue_physics.xml"/>
 </mujoco>

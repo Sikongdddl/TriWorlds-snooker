@@ -34,7 +34,7 @@ def _shot_direction(command: SkillCommand, state: SceneState) -> np.ndarray:
         return np.array([direction[0] / norm, direction[1] / norm, 0.0], dtype=np.float64)
 
     if intent.object_ball_name is None:
-        return np.array([1.0, 0.0, 0.0], dtype=np.float64)
+        return np.array([0.0, 1.0, 0.0], dtype=np.float64)
     if intent.cue_ball_name not in state.balls:
         raise KeyError(f"Missing cue ball state: {intent.cue_ball_name}")
     if intent.object_ball_name not in state.balls:
@@ -53,7 +53,7 @@ def _impact_point(command: SkillCommand, state: SceneState, direction: np.ndarra
     cue_ball = state.balls[command.intent.cue_ball_name]
     # The cue approaches from behind the desired cue-ball travel direction, so
     # the tip contacts the rear side of the cue ball.
-    return cue_ball.position - direction * float(command.params.get("ball_radius", 0.02625))
+    return cue_ball.position - direction * float(command.params.get("ball_radius", 0.0285))
 
 
 def _cue_pose_from_plan(command: SkillCommand, state: SceneState, backoff: float) -> Pose3D:

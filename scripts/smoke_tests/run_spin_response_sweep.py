@@ -16,9 +16,10 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from snooker_env.midlevel_env import DEFAULT_MIDLEVEL_MODEL, MidLevelCueEnv  # noqa: E402
 from snooker_env.pipeline_types import CueCommand, Pose3D  # noqa: E402
+from snooker_env.table_geometry import BALL_CENTER_Z  # noqa: E402
 
 
-BALL_RADIUS = 0.028575
+BALL_RADIUS = 0.0285
 CUE_TIP_OFFSET = 0.725
 CUE_TIP_RADIUS = 0.009
 
@@ -59,7 +60,7 @@ def _x_axis_from_quat(quat: np.ndarray) -> np.ndarray:
 def _move_object_ball_aside(env: MidLevelCueEnv) -> None:
     qadr = int(env.model.jnt_qposadr[env.object_ball_joint])
     dadr = int(env.model.jnt_dofadr[env.object_ball_joint])
-    env.data.qpos[qadr:qadr + 3] = np.array([0.75, 0.35, 0.7898], dtype=np.float64)
+    env.data.qpos[qadr:qadr + 3] = np.array([0.50, 0.35, BALL_CENTER_Z], dtype=np.float64)
     env.data.qpos[qadr + 3:qadr + 7] = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float64)
     env.data.qvel[dadr:dadr + 6] = 0.0
     mujoco.mj_forward(env.model, env.data)
@@ -132,7 +133,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--offset", type=float, default=0.010)
     parser.add_argument("--gap", type=float, default=0.004)
     parser.add_argument("--elevation", type=float, default=np.deg2rad(8.0))
-    parser.add_argument("--action-repeat", type=int, default=320)
+    parser.add_argument("--action-repeat", type=int, default=8000)
     parser.add_argument("--settle-time", type=float, default=0.25)
     parser.add_argument("--min-angular-spread", type=float, default=0.05)
     return parser.parse_args()

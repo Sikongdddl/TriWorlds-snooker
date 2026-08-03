@@ -1,4 +1,4 @@
-"""Verify that the initial object-ball rack has no overlap or lateral drift."""
+"""Verify that the initial fifteen-ball rack has no overlap or lateral drift."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ def main() -> None:
     data = mujoco.MjData(model)
     set_lift_grip_ready_pose(model, data)
 
-    names = [f"object_ball_{index}" for index in range(10)]
+    names = [f"object_ball_{index}" for index in range(15)]
     body_ids = [_id(model, mujoco.mjtObj.mjOBJ_BODY, name) for name in names]
     geom_ids = [_id(model, mujoco.mjtObj.mjOBJ_GEOM, f"{name}_geom") for name in names]
     joint_ids = [_id(model, mujoco.mjtObj.mjOBJ_JOINT, f"{name}_free") for name in names]
@@ -70,4 +70,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

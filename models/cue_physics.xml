@@ -2,13 +2,13 @@
   <asset>
     <material name="dynamic_cue_wood_mat" rgba="0.72 0.43 0.20 1"/>
     <material name="dynamic_cue_tip_mat" rgba="0.03 0.03 0.028 1"/>
-    <texture name="sketchfab_cue_texture" type="2d" file="../assets/cue/sketchfab_pool_table_traditional/cue_mat_baseColor.png"/>
+    <texture name="sketchfab_cue_texture" type="2d" file="/home/ubuntu/TriWorlds-snooker/assets/cue/sketchfab_pool_table_traditional/cue_mat_baseColor.png"/>
     <material name="sketchfab_cue_mat" texture="sketchfab_cue_texture" rgba="1 1 1 1" reflectance="0.08"/>
     <mesh name="sketchfab_cue_visual" file="../assets/cue/sketchfab_pool_table_traditional/pool_cue_visual_local.obj"/>
   </asset>
 
   <worldbody>
-    <body name="cue_body" pos="-1.3996 0 0.7898" quat="1 0 0 0">
+    <body name="cue_body" pos="0 -1.3996 1.0785" quat="0.7071067812 0 0 0.7071067812">
       <!-- Cue local +X points from butt to tip. Left hand site is closer to
            the cue ball; right hand site is farther back for the power stroke. -->
       <freejoint name="cue_free"/>
@@ -20,7 +20,7 @@
             friction="0 0 0"/>
       <geom name="cue_tip" type="capsule" fromto="0.705 0 0 0.725 0 0" size="0.009"
             mass="0.03" material="dynamic_cue_tip_mat"
-            contype="4" conaffinity="2" condim="6" priority="3"
+            contype="1" conaffinity="1" condim="6" priority="3"
             friction="0.35 0.008 0.0001" solref="-5e6 -300"
             solimp="0.95 0.99 0.001"/>
       <site name="cue_tip_site" pos="0.725 0 0" size="0.006" rgba="0 1 0 1"/>

@@ -22,6 +22,7 @@ ROOT = add_src_to_path()
 
 from snooker_env.lowlevel_residual_env import LowLevelResidualEnv  # noqa: E402
 from snooker_env.pipeline_types import CueCommand, Pose3D  # noqa: E402
+from snooker_env.table_geometry import central_cloth_geom_id, cushion_geom_ids  # noqa: E402
 
 
 ARM_SIDES = ("left", "right")
@@ -40,7 +41,7 @@ def _camera() -> mujoco.MjvCamera:
     camera.distance = 2.35
     camera.azimuth = -90.0
     camera.elevation = -88.0
-    camera.lookat[:] = (0.0, 0.0, 0.76)
+    camera.lookat[:] = (0.0, 0.0, 1.05)
     return camera
 
 
@@ -95,33 +96,10 @@ def _collision_configuration(model: mujoco.MjModel, data: mujoco.MjData) -> tupl
         return identifier
 
     ball = geom_id("cue_ball_geom")
-    cloth = geom_id("playfield_collision")
-    rounded_rails = [
-        geom_id(name)
-        for name in (
-            "cushion_nose_y_pos_left",
-            "cushion_nose_y_pos_right",
-            "cushion_nose_y_neg_left",
-            "cushion_nose_y_neg_right",
-            "cushion_nose_x_pos",
-            "cushion_nose_x_neg",
-        )
-    ]
-    legacy_rails = [
-        geom_id(name)
-        for name in (
-            "cushion_y_pos_left",
-            "cushion_y_pos_right",
-            "cushion_y_neg_left",
-            "cushion_y_neg_right",
-            "cushion_x_pos",
-            "cushion_x_neg",
-        )
-    ]
+    cloth = central_cloth_geom_id(model)
+    rounded_rails = list(cushion_geom_ids(model))
     if not all(model.geom_contype[index] != 0 for index in rounded_rails):
         raise RuntimeError("Current rounded cushion collision geoms are not active.")
-    if any(model.geom_contype[index] != 0 for index in legacy_rails):
-        raise RuntimeError("Legacy box cushion collision geoms are unexpectedly active.")
 
     object_geoms = [
         mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, f"object_ball_{index}_geom")
@@ -150,7 +128,7 @@ def _collision_configuration(model: mujoco.MjModel, data: mujoco.MjData) -> tupl
     geometry = (
         f"cloth friction=({model.geom_friction[cloth, 0]:.2f},"
         f"{model.geom_friction[cloth, 1]:.4f},{model.geom_friction[cloth, 2]:.5f})  "
-        f"rounded rails=6 active  legacy rails=off  rack gap={minimum_gap * 1000.0:.3f}mm"
+        f"source SDF/cylinder rails={len(rounded_rails)} active  rack gap={minimum_gap * 1000.0:.3f}mm"
     )
     return summary, geometry
 
@@ -214,7 +192,7 @@ def main() -> None:
     parser.add_argument("--backswing-seconds", type=float, default=0.70)
     parser.add_argument("--follow-through", type=float, default=0.150)
     parser.add_argument("--stroke-seconds", type=float, default=0.30)
-    parser.add_argument("--aim-y", type=float, default=-0.0365)
+    parser.add_argument("--aim-x", "--aim-y", dest="aim_x", type=float, default=0.0)
     parser.add_argument("--aim-z", type=float, default=0.0080)
     parser.add_argument("--arm-kp", type=float, default=320.0)
     parser.add_argument("--arm-force-limit", type=float, default=320.0)
@@ -285,19 +263,19 @@ def main() -> None:
             if env.data.time + 1e-12 >= next_control_time:
                 if elapsed < args.backswing_seconds:
                     fraction = _smoothstep(elapsed / args.backswing_seconds)
-                    x_offset = -args.backswing * fraction
-                    y_offset = 0.0
+                    x_offset = 0.0
+                    y_offset = -args.backswing * fraction
                     z_offset = 0.0
                 elif elapsed < args.backswing_seconds + args.stroke_seconds:
                     fraction = _smoothstep(
                         (elapsed - args.backswing_seconds) / args.stroke_seconds
                     )
-                    x_offset = -args.backswing + (args.backswing + args.follow_through) * fraction
-                    y_offset = args.aim_y * fraction
+                    x_offset = args.aim_x * fraction
+                    y_offset = -args.backswing + (args.backswing + args.follow_through) * fraction
                     z_offset = args.aim_z * fraction
                 else:
-                    x_offset = args.follow_through
-                    y_offset = args.aim_y
+                    x_offset = args.aim_x
+                    y_offset = args.follow_through
                     z_offset = args.aim_z
 
                 desired_pose = Pose3D(

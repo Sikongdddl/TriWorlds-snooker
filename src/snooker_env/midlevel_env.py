@@ -15,8 +15,6 @@ import numpy as np
 
 from snooker_env.contact_events import CollisionEventMonitor, ContactEvent
 from snooker_env.pipeline_types import BallState, CueCommand, SceneState, TableState
-
-
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MIDLEVEL_MODEL = ROOT / "models" / "midlevel_train_scene.xml"
 
@@ -42,7 +40,7 @@ class MidLevelRolloutResult:
 class MidLevelCueEnv:
     """Two-ball scene with direct cue pose/velocity control."""
 
-    def __init__(self, model_path: Path = DEFAULT_MIDLEVEL_MODEL, action_repeat: int = 200) -> None:
+    def __init__(self, model_path: Path = DEFAULT_MIDLEVEL_MODEL, action_repeat: int = 5000) -> None:
         if not model_path.exists():
             raise FileNotFoundError(model_path)
         if action_repeat <= 0:
@@ -62,13 +60,19 @@ class MidLevelCueEnv:
         self._cue_local_samples = np.linspace(-0.725, 0.725, 25)
         self._cue_radius = 0.011
         self._table_obstacles = (
-            (np.array([0.0, 0.0, 0.755], dtype=np.float64), np.array([1.07, 0.54, 0.006], dtype=np.float64)),
-            (np.array([-0.55, 0.575, 0.795], dtype=np.float64), np.array([0.43, 0.035, 0.040], dtype=np.float64)),
-            (np.array([0.55, 0.575, 0.795], dtype=np.float64), np.array([0.43, 0.035, 0.040], dtype=np.float64)),
-            (np.array([-0.55, -0.575, 0.795], dtype=np.float64), np.array([0.43, 0.035, 0.040], dtype=np.float64)),
-            (np.array([0.55, -0.575, 0.795], dtype=np.float64), np.array([0.43, 0.035, 0.040], dtype=np.float64)),
-            (np.array([1.105, 0.0, 0.795], dtype=np.float64), np.array([0.035, 0.42, 0.040], dtype=np.float64)),
-            (np.array([-1.105, 0.0, 0.795], dtype=np.float64), np.array([0.035, 0.42, 0.040], dtype=np.float64)),
+            (np.array([0.0, 0.0, 1.0], dtype=np.float64), np.array([0.615, 1.25, 0.05], dtype=np.float64)),
+            (np.array([-0.696213, 0.655, 1.0], dtype=np.float64), np.array([0.081213, 0.575, 0.05], dtype=np.float64)),
+            (np.array([-0.696213, -0.655, 1.0], dtype=np.float64), np.array([0.081213, 0.575, 0.05], dtype=np.float64)),
+            (np.array([0.696213, 0.655, 1.0], dtype=np.float64), np.array([0.081213, 0.575, 0.05], dtype=np.float64)),
+            (np.array([0.696213, -0.655, 1.0], dtype=np.float64), np.array([0.081213, 0.575, 0.05], dtype=np.float64)),
+            (np.array([0.0, 1.31, 1.0], dtype=np.float64), np.array([0.545, 0.06, 0.05], dtype=np.float64)),
+            (np.array([0.0, -1.31, 1.0], dtype=np.float64), np.array([0.545, 0.06, 0.05], dtype=np.float64)),
+            (np.array([-0.747426, 0.655, 1.085], dtype=np.float64), np.array([0.10, 0.655, 0.035], dtype=np.float64)),
+            (np.array([-0.747426, -0.655, 1.085], dtype=np.float64), np.array([0.10, 0.655, 0.035], dtype=np.float64)),
+            (np.array([0.747426, 0.655, 1.085], dtype=np.float64), np.array([0.10, 0.655, 0.035], dtype=np.float64)),
+            (np.array([0.747426, -0.655, 1.085], dtype=np.float64), np.array([0.10, 0.655, 0.035], dtype=np.float64)),
+            (np.array([0.0, 1.37, 1.085], dtype=np.float64), np.array([0.665, 0.12, 0.035], dtype=np.float64)),
+            (np.array([0.0, -1.37, 1.085], dtype=np.float64), np.array([0.665, 0.12, 0.035], dtype=np.float64)),
         )
 
     @property

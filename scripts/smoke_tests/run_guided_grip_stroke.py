@@ -80,7 +80,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Guided scaffold stroke using LIFT TCP Jacobian IK and cue grip constraints.")
     parser.add_argument("--model", type=Path, default=default_model_path())
     parser.add_argument("--duration", type=float, default=0.8)
-    parser.add_argument("--stroke", type=float, default=0.06, help="Desired TCP displacement along world +X in meters.")
+    parser.add_argument("--stroke", type=float, default=0.06, help="Desired TCP displacement along world +Y in meters.")
     parser.add_argument("--damping", type=float, default=0.08, help="Damped least-squares IK regularization.")
     parser.add_argument("--max-step", type=float, default=0.001, help="Max scalar joint update per sim step.")
     args = parser.parse_args()
@@ -109,7 +109,7 @@ def main() -> None:
     steps = int(args.duration / model.opt.timestep)
     for step in range(steps):
         phase = min(1.0, step / max(1, int(0.55 * steps)))
-        offset = np.array([args.stroke * phase, 0.0, 0.0])
+        offset = np.array([0.0, args.stroke * phase, 0.0])
 
         mujoco.mj_forward(model, data)
         residuals: list[np.ndarray] = []
@@ -154,8 +154,8 @@ def main() -> None:
 
     if has_nan or exploded:
         raise RuntimeError("Guided grip stroke failed: unstable simulation.")
-    if cue_tip_delta[0] < 0.01:
-        raise RuntimeError("Guided grip stroke failed: cue tip did not move meaningfully along +X.")
+    if cue_tip_delta[1] < 0.01:
+        raise RuntimeError("Guided grip stroke failed: cue tip did not move meaningfully along +Y.")
     if max_grip_error > 0.05:
         raise RuntimeError(f"Guided grip stroke failed: grip error too large ({max_grip_error:.6f} m).")
 

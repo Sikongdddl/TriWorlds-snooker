@@ -1,29 +1,25 @@
 <mujoco>
-  <asset>
-    <material name="midlevel_ball_white_mat" rgba="0.96 0.94 0.86 1"/>
-    <material name="midlevel_ball_yellow_mat" rgba="0.95 0.72 0.08 1"/>
-  </asset>
-
-  <default>
-    <default class="midlevel_pool_ball">
-      <geom type="sphere" size="0.028575" mass="0.170"
-            contype="2" conaffinity="7" condim="3" priority="0"
-            friction="0 0 0" solref="-1e7 -100"
-            solimp="0.95 0.99 0.001"/>
-      <joint damping="0.0001"/>
-    </default>
-  </default>
-
   <worldbody>
-    <body name="cue_ball" pos="-0.616 0 0.7898">
+    <body name="cue_ball" pos="0 -0.616 1.0785">
       <freejoint name="cue_ball_free"/>
-      <geom name="cue_ball_geom" class="midlevel_pool_ball" material="midlevel_ball_white_mat"/>
-      <site name="cue_ball_center" pos="0 0 0" size="0.004" rgba="0.1 0.1 1 1"/>
+      <geom name="cue_ball_geom" class="ball" pos="0 0 0" rgba="1 1 1 1"/>
+      <site name="cue_ball_marker_pos_x" type="cylinder" size="0.004 0.001"
+            rgba="1 0 0 1" pos="0.0275 0 0" zaxis="1 0 0"/>
+      <site name="cue_ball_marker_neg_x" type="cylinder" size="0.004 0.001"
+            rgba="1 0 0 1" pos="-0.0275 0 0" zaxis="1 0 0"/>
+      <site name="cue_ball_marker_pos_y" type="cylinder" size="0.004 0.001"
+            rgba="1 0 0 1" pos="0 0.0275 0" zaxis="0 1 0"/>
+      <site name="cue_ball_marker_neg_y" type="cylinder" size="0.004 0.001"
+            rgba="1 0 0 1" pos="0 -0.0275 0" zaxis="0 1 0"/>
+      <site name="cue_ball_marker_pos_z" type="cylinder" size="0.004 0.001"
+            rgba="1 0 0 1" pos="0 0 0.0275"/>
+      <site name="cue_ball_marker_neg_z" type="cylinder" size="0.004 0.001"
+            rgba="1 0 0 1" pos="0 0 -0.0275"/>
     </body>
 
-    <body name="object_ball_0" pos="0.15 0.08 0.7898">
+    <body name="object_ball_0" pos="-0.08 0.15 1.0785">
       <freejoint name="object_ball_0_free"/>
-      <geom name="object_ball_0_geom" class="midlevel_pool_ball" material="midlevel_ball_yellow_mat"/>
+      <geom name="object_ball_0_geom" class="ball" euler="0 0 180" material="mat-billiards-09"/>
     </body>
   </worldbody>
 </mujoco>

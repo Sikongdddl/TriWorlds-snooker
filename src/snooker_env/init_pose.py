@@ -3,6 +3,9 @@ from __future__ import annotations
 import mujoco
 
 
+LIFT_READY_HEIGHT = 0.549
+
+
 def set_lift_grip_ready_pose(model: mujoco.MjModel, data: mujoco.MjData) -> None:
     """Set the current scaffold pose used before dual-grip training.
 
@@ -13,10 +16,10 @@ def set_lift_grip_ready_pose(model: mujoco.MjModel, data: mujoco.MjData) -> None
     joint_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, "joint_lift")
     if joint_id >= 0:
         qpos_id = int(model.jnt_qposadr[joint_id])
-        data.qpos[qpos_id] = 0.26
+        data.qpos[qpos_id] = LIFT_READY_HEIGHT
 
     for actuator_name, value in {
-        "joint_lift_pos": 0.26,
+        "joint_lift_pos": LIFT_READY_HEIGHT,
         "left_catch_joint1_pos": -0.025,
         "left_catch_joint2_pos": 0.025,
         "right_catch_joint1_pos": -0.025,

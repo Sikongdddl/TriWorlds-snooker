@@ -43,7 +43,7 @@ def _camera() -> mujoco.MjvCamera:
     camera.distance = 2.15
     camera.azimuth = -38.0
     camera.elevation = -14.0
-    camera.lookat[:] = (-0.75, 0.18, 0.78)
+    camera.lookat[:] = (0.0, -0.90, 1.08)
     return camera
 
 
@@ -64,19 +64,19 @@ def _hide_debug_groups(renderer: mujoco.Renderer) -> None:
 def _cases(group: str) -> tuple[SafeCase, ...]:
     if group == "offsets":
         return (
-            SafeCase("left offset: py=-0.010 m", np.array([0.060, -0.010, 0.005]), np.array([0.080, -0.010, 0.0]), 1.50),
-            SafeCase("center: py=0.000 m", np.array([0.060, 0.000, 0.005]), np.array([0.080, 0.000, 0.0]), 1.50),
-            SafeCase("right offset: py=+0.010 m", np.array([0.060, 0.010, 0.005]), np.array([0.080, 0.010, 0.0]), 1.50),
+            SafeCase("left offset: px=-0.010 m", np.array([-0.010, 0.060, 0.005]), np.array([-0.010, 0.080, 0.0]), 1.50),
+            SafeCase("center: px=0.000 m", np.array([0.000, 0.060, 0.005]), np.array([0.000, 0.080, 0.0]), 1.50),
+            SafeCase("right offset: px=+0.010 m", np.array([0.010, 0.060, 0.005]), np.array([0.010, 0.080, 0.0]), 1.50),
         )
     if group == "heights":
         return (
-            SafeCase("low contact: pz=-0.005 m", np.array([0.060, 0.0, -0.005]), np.array([0.080, 0.0, -0.010]), 1.50),
-            SafeCase("center-high: pz=+0.005 m", np.array([0.060, 0.0, 0.005]), np.array([0.080, 0.0, 0.0]), 1.50),
-            SafeCase("high contact: pz=+0.015 m", np.array([0.060, 0.0, 0.015]), np.array([0.080, 0.0, 0.010]), 1.50),
+            SafeCase("low contact: pz=-0.005 m", np.array([0.0, 0.060, -0.005]), np.array([0.0, 0.080, -0.010]), 1.50),
+            SafeCase("center-high: pz=+0.005 m", np.array([0.0, 0.060, 0.005]), np.array([0.0, 0.080, 0.0]), 1.50),
+            SafeCase("high contact: pz=+0.015 m", np.array([0.0, 0.060, 0.015]), np.array([0.0, 0.080, 0.010]), 1.50),
         )
     if group == "durations":
-        displacement = np.array([0.060, 0.0, 0.005])
-        velocity = np.array([0.080, 0.0, 0.0])
+        displacement = np.array([0.0, 0.060, 0.005])
+        velocity = np.array([0.0, 0.080, 0.0])
         return (
             SafeCase("duration=1.50 s", displacement, velocity, 1.50),
             SafeCase("duration=1.75 s", displacement, velocity, 1.75),
@@ -198,4 +198,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

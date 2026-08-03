@@ -17,9 +17,10 @@ add_src_to_path()
 
 from snooker_env.midlevel_env import DEFAULT_MIDLEVEL_MODEL, MidLevelCueEnv  # noqa: E402
 from snooker_env.pipeline_types import CueCommand, Pose3D  # noqa: E402
+from snooker_env.table_geometry import BALL_CENTER_Z  # noqa: E402
 
 
-BALL_RADIUS = 0.028575
+BALL_RADIUS = 0.0285
 CUE_TIP_OFFSET = 0.725
 CUE_TIP_RADIUS = 0.009
 
@@ -53,7 +54,7 @@ def _camera() -> mujoco.MjvCamera:
     camera.distance = 2.05
     camera.azimuth = -90.0
     camera.elevation = -32.0
-    camera.lookat[:] = (0.10, 0.0, 0.79)
+    camera.lookat[:] = (0.10, 0.0, 1.0785)
     return camera
 
 
@@ -105,8 +106,8 @@ def _init_panel(
 ) -> PanelState:
     env = MidLevelCueEnv(args.model, action_repeat=args.action_repeat)
     env.reset()
-    _set_ball(env, "cue_ball_free", np.array([args.cue_ball_x, args.cue_ball_y, 0.7898], dtype=np.float64))
-    _set_ball(env, "object_ball_0_free", np.array([args.object_ball_x, args.object_ball_y, 0.7898], dtype=np.float64))
+    _set_ball(env, "cue_ball_free", np.array([args.cue_ball_x, args.cue_ball_y, BALL_CENTER_Z], dtype=np.float64))
+    _set_ball(env, "object_ball_0_free", np.array([args.object_ball_x, args.object_ball_y, BALL_CENTER_Z], dtype=np.float64))
     mujoco.mj_forward(env.model, env.data)
 
     cue_ball_pos = env.scene_state().balls["cue_ball"].position.copy()
@@ -263,11 +264,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--offset", type=float, default=0.010)
     parser.add_argument("--gap", type=float, default=0.004)
     parser.add_argument("--elevation", type=float, default=np.deg2rad(8.0))
-    parser.add_argument("--action-repeat", type=int, default=360)
+    parser.add_argument("--action-repeat", type=int, default=9000)
     parser.add_argument("--settle-time", type=float, default=2.8)
-    parser.add_argument("--cue-ball-x", type=float, default=-0.616)
+    parser.add_argument("--cue-ball-x", type=float, default=-0.35)
     parser.add_argument("--cue-ball-y", type=float, default=0.0)
-    parser.add_argument("--object-ball-x", type=float, default=-0.18)
+    parser.add_argument("--object-ball-x", type=float, default=0.15)
     parser.add_argument("--object-ball-y", type=float, default=0.0)
     parser.add_argument("--kind", choices=("vertical", "side", "both"), default="both")
     return parser.parse_args()

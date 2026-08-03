@@ -52,9 +52,9 @@ class BallState:
 class TableState:
     """Table geometry useful for high-level planning."""
 
-    length: float = 2.84
-    width: float = 1.42
-    cushion_height: float = 0.08
+    length: float = 2.54
+    width: float = 1.27
+    cushion_height: float = 0.035
     pocket_positions: tuple[FloatArray, ...] = ()
 
 

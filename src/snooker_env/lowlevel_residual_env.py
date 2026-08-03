@@ -63,7 +63,7 @@ class LowLevelResidualEnv(gym.Env[np.ndarray, np.ndarray]):
         model_path: str | Path | None = None,
         *,
         command: CueCommand | None = None,
-        control_decimation: int = 40,
+        control_decimation: int = 1000,
         residual_scale: float = 0.035,
         randomize_command: bool = False,
         render_mode: str | None = None,
@@ -172,22 +172,22 @@ class LowLevelResidualEnv(gym.Env[np.ndarray, np.ndarray]):
         # Conservative command found by the actuator-level contact sweep:
         # 60 mm forward travel, 5 mm high contact, and enough time for the
         # current position actuators to reach the cue ball before truncation.
-        displacement = np.array([0.060, 0.0, 0.005], dtype=np.float64)
-        linear_velocity = np.array([0.080, 0.0, 0.0], dtype=np.float64)
+        displacement = np.array([0.0, 0.060, 0.005], dtype=np.float64)
+        linear_velocity = np.array([0.0, 0.080, 0.0], dtype=np.float64)
         duration = 1.50
         if self.randomize_command:
             displacement = np.array(
                 [
-                    self.np_random.uniform(0.045, 0.070),
                     self.np_random.uniform(-0.015, 0.015),
+                    self.np_random.uniform(0.045, 0.070),
                     self.np_random.uniform(-0.010, 0.020),
                 ],
                 dtype=np.float64,
             )
             linear_velocity = np.array(
                 [
-                    self.np_random.uniform(0.060, 0.120),
                     self.np_random.uniform(-0.020, 0.020),
+                    self.np_random.uniform(0.060, 0.120),
                     self.np_random.uniform(-0.020, 0.030),
                 ],
                 dtype=np.float64,
@@ -396,7 +396,7 @@ class LowLevelResidualEnv(gym.Env[np.ndarray, np.ndarray]):
             self.model.vis.global_.offwidth = max(self.model.vis.global_.offwidth, self.render_width)
             self.model.vis.global_.offheight = max(self.model.vis.global_.offheight, self.render_height)
             self._renderer = mujoco.Renderer(self.model, height=self.render_height, width=self.render_width)
-        self._renderer.update_scene(self.data, camera="asset_overview")
+        self._renderer.update_scene(self.data, camera="cam1")
         return self._renderer.render().copy()
 
     def close(self) -> None:

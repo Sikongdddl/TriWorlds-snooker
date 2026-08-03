@@ -1,0 +1,414 @@
+<!-- Billiards table definitions -->
+<!-- Include to use -->
+<!--
+    Reference standards
+    https://www.nba.or.jp/wp-content/uploads/2022/09/2025%E6%94%B9%E5%AE%9A%E7%89%88NBA%E3%83%AB%E3%83%BC%E3%83%AB%E3%83%96%E3%83%83%E3%82%AF20250401.pdf
+    https://en.wikipedia.org/wiki/Pool_(cue_sports)
+    https://en.wikipedia.org/wiki/Billiard_table#Dimensions_2
+    https://sportsdimensia.com/measuring-a-pool-table/
+-->
+<!--
+    Playing surface (9-foot table): 254 cm x 127 cm (100 inch x 50 inch).
+    Assuming 4cm for the cushion protrusion from the center of the corner pocket,
+    the surface area without cushions is 262 cm x 135 cm.
+    Cushion height is 3.5cm.
+    Pocket hole diameter: 12cm.
+    Ball diameter: 5.7cm.
+-->
+<mujoco>
+  <!--
+  <option cone="elliptic"/>
+  -->
+
+  <extension>
+    <plugin plugin="mujoco.sdf.hollow_cylinder">
+      <instance name="hollow_cylinder1">
+        <config key="halfheight" value="0.05"/>
+        <config key="radius" value="0.12"/>
+        <config key="halfthickness" value="0.06"/>
+      </instance>
+    </plugin>
+
+    <plugin plugin="mujoco.sdf.hollow_cylinder">
+      <instance name="hollow_cylinder2">
+        <config key="halfheight" value="0.05"/>
+        <config key="radius" value="0.098787"/>
+        <config key="halfthickness" value="0.038787"/>
+      </instance>
+    </plugin>
+
+    <plugin plugin="mujoco.sdf.half_hollow_cylinder">
+      <instance name="half_hollow_cylinder1">
+        <config key="halfheight" value="0.0198"/>
+        <config key="radius" value="0.12"/>
+        <config key="halfthickness" value="0.06"/>
+      </instance>
+    </plugin>
+
+    <plugin plugin="mujoco.sdf.half_hollow_cylinder">
+      <instance name="half_hollow_cylinder2">
+        <config key="halfheight" value="0.0198"/>
+        <config key="radius" value="0.098787"/>
+        <config key="halfthickness" value="0.038787"/>
+      </instance>
+    </plugin>
+
+    <!-- Parts that act as cushions -->
+    <plugin plugin="mujoco.sdf.trapezoid">
+      <instance name="trapezoid_x">
+        <config key="basewidth" value="1.265148"/>
+        <config key="topwidth" value="1.165148"/> <!-- Number above -0.1 -->
+        <config key="height" value="0.035"/>
+        <config key="depth" value="0.01"/>
+      </instance>
+    </plugin>
+
+    <!-- Parts that act as cushions -->
+    <plugin plugin="mujoco.sdf.trapezoid">
+      <instance name="trapezoid_y">
+        <config key="basewidth" value="1.227574"/>
+        <config key="topwidth" value="1.127574"/> <!-- Number above -0.1 -->
+        <config key="height" value="0.035"/>
+        <config key="depth" value="0.01"/>
+      </instance>
+    </plugin>
+
+  </extension>
+
+  <asset>
+    <texture name="tex-grid" type="2d" builtin="checker" rgb1=".1 .2 .3"
+     rgb2=".2 .3 .4" width="200" height="200" mark="none"/>
+
+    <material name="mat-grid" texture="tex-grid" texrepeat="1 1"
+     reflectance="0" emission="0"/>
+
+    <texture name="tex-surface" type="cube" builtin="flat"
+             rgb1="0.04 0.26 0.16" rgb2="0.04 0.26 0.16" width="100" height="100"/>
+
+    <material name="mat-surface" texture="tex-surface" reflectance="0" emission="0"/>
+
+    <texture name="tex-wood" type="cube" builtin="flat"
+             rgb1="0.35 0.231 0.2235" rgb2="0.35 0.231 0.2235" width="100" height="100"/>
+
+    <material name="mat-wood" texture="tex-wood" reflectance="0" emission="0"/>
+
+
+    <mesh name="hollow_cylinder1">
+      <plugin instance="hollow_cylinder1"/>
+    </mesh>
+
+    <mesh name="hollow_cylinder2">
+      <plugin instance="hollow_cylinder2"/>
+    </mesh>
+
+    <mesh name="half_hollow_cylinder1">
+      <plugin instance="half_hollow_cylinder1"/>
+    </mesh>
+
+    <mesh name="half_hollow_cylinder2">
+      <plugin instance="half_hollow_cylinder2"/>
+    </mesh>
+
+    <mesh name="trapezoid_x">
+      <plugin instance="trapezoid_x"/>
+    </mesh>
+
+    <mesh name="trapezoid_y">
+      <plugin instance="trapezoid_y"/>
+    </mesh>
+
+  </asset>
+
+  <default>
+    <!-- Surface pocket areas -->
+    <default class="pocket">
+      <geom type="sdf" material="mat-surface"
+            priority="1" condim="6" friction="0.1 1e-3 2.8e-4" solref="-1e7 -1e3"/>
+    </default>
+
+    <!-- Wooden parts above the pockets -->
+    <default class="pocket-wood">
+      <geom type="sdf" material="mat-wood"
+            priority="1" condim="6" friction="0 0 0" solref="-1e5 -1e5"/>
+    </default>
+
+
+    <!-- Outermost parts of the surface extending in the Y-direction -->
+    <!-- Balls don't actually roll here, so friction settings shouldn't be necessary... -->
+    <default class="surface-y1">
+      <geom type="box" material="mat-surface" size="0.038787 0.655 0.05"
+            priority="1" condim="6" friction="0.1 1e-3 2.8e-4" solref="-1e7 -1e3"/>
+    </default>
+
+    <!-- Outermost parts of the surface extending in the X-direction -->
+    <!-- Balls don't actually roll here, so friction settings shouldn't be necessary... -->
+    <default class="surface-x1">
+      <geom type="box" material="mat-surface" size="0.665 0.06 0.05"
+            priority="1" condim="6" friction="0.1 1e-3 2.8e-4" solref="-1e7 -1e3"/>
+    </default>
+
+
+    <!-- Second outermost parts of the surface extending in the Y-direction -->
+    <!--
+        The primary friction value is increased for this part to suppress
+        the ball's reverse rotation upon reflection.
+    -->
+    <default class="surface-y2">
+      <geom type="box" material="mat-surface" size="0.081213 0.575 0.05"
+            priority="1" condim="6" friction="0.8 1e-3 2.8e-4" solref="-1e7 -1e3"/>
+    </default>
+
+    <!-- Second outermost parts of the surface extending in the X-direction -->
+    <!--
+        The primary friction value is increased for this part to suppress
+        the ball's reverse rotation upon reflection.
+    -->
+    <default class="surface-x2">
+      <geom type="box" material="mat-surface" size="0.545 0.06 0.05"
+            priority="1" condim="6" friction="0.8 1e-3 2.8e-4" solref="-1e7 -1e3"/>
+    </default>
+
+    <!-- Largest center part of the surface -->
+    <default class="surface-center">
+      <geom type="box" material="mat-surface" size="0.615 1.25 0.05"
+            priority="1" condim="6" friction="0.1 1e-3 2.8e-4" solref="-1e7 -1e3" />
+    </default>
+
+
+    <!-- Cushions extending in the X-direction -->
+    <default class="cushion-x">
+      <geom type="sdf" material="mat-surface"
+            priority="1" condim="6" friction="0.03 0.01 0.001" solref="-1e7 -1e3"/>
+    </default>
+
+    <!-- Cushions extending in the Y-direction -->
+    <default class="cushion-y">
+      <geom type="sdf" material="mat-surface"
+            priority="1" condim="6" friction="0.03 0.01 0.001" solref="-1e7 -1e3"/>
+    </default>
+
+    <!-- Cushions extending in the X-direction (the cylinder where the ball actually hits) -->
+    <!-- Requires a stiffness of around solref="-1e10 *" to make the angles of incidence and reflection equal at higher speeds -->
+    <!--
+        A ball hitting the cushion strongly will have a smaller angle of reflection than incidence.
+        A weakly hitting ball will have a larger angle of reflection.
+    -->
+    <default class="cylinder-x">
+      <geom type="cylinder" material="mat-surface" size="0.005 0.582574" zaxis="1 0 0"
+            priority="1" condim="6" friction="0.01 0 0" solref="-1e9 -8e3"/>
+    </default>
+
+    <!-- Cushions extending in the Y-direction (the cylinder where the ball actually hits) -->
+    <!-- Requires a stiffness of around solref="-1e10 *" to make the angles of incidence and reflection equal at higher speeds -->
+    <!--
+        A ball hitting the cushion strongly will have a smaller angle of reflection than incidence.
+        A weakly hitting ball will have a larger angle of reflection.
+    -->
+    <default class="cylinder-y">
+      <geom type="cylinder" material="mat-surface" size="0.005 0.563787" zaxis="0 1 0"
+            priority="1" condim="6" friction="0.01 0 0" solref="-1e9 -8e3"/>
+    </default>
+
+
+    <!-- Outermost parts of the upper section extending in the Y-direction -->
+    <default class="upper-y1">
+      <geom type="box" material="mat-wood" size="0.038787 0.655 0.020" />
+    </default>
+
+    <!-- Second outermost parts of the upper section extending in the Y-direction -->
+    <default class="upper-y2">
+      <geom type="box" material="mat-wood" size="0.03 0.603787 0.01995"
+            priority="1" condim="6" friction="0.03 0.01 0.001" solref="-1e7 0"/>
+    </default>
+
+    <!-- Outermost parts of the upper section extending in the X-direction -->
+    <default class="upper-x1">
+      <geom type="box" material="mat-wood" size="0.655 0.06 0.020" />
+    </default>
+
+    <!-- Second outermost parts of the upper section extending in the X-direction -->
+    <default class="upper-x2">
+      <geom type="box" material="mat-wood" size="0.632574 0.021213 0.01995"
+            priority="1" condim="6" friction="0.03 0.01 0.001" solref="-1e7 0"/>
+    </default>
+
+    <!-- Spots -->
+    <default class="spot">
+      <site type="cylinder" size="0.006 0.0001" rgba="1 1 1 1"/>
+    </default>
+
+  </default>
+
+  <worldbody>
+    <!--
+    <light name="light1" pos="0 1 5.0"/>
+    <light name="light2" pos="0 -1 5.0"/>
+    -->
+
+    <light name="light1" pos="1.5 1 5.0"/>
+    <light name="light2" pos="1.5 -1 5.0"/>
+    <light name="light3" pos="-1.5 1 5.0"/>
+    <light name="light4" pos="-1.5 -1 5.0"/>
+
+    <geom type="plane" size="0 0 10" material="mat-grid" friction="0 0 0"
+          priority="1" solref="-10000 -100" />
+
+    <body pos="0 0 1">
+      <!-- Top left -->
+      <geom class="pocket" mesh="hollow_cylinder1" pos="-0.675 1.31 -0.0001">
+        <plugin instance="hollow_cylinder1"/>
+      </geom>
+
+      <!-- Middle left -->
+      <geom class="pocket" mesh="hollow_cylinder2" pos="-0.717426 0 -0.0001">
+        <plugin instance="hollow_cylinder2"/>
+      </geom>
+
+      <!-- Bottom left -->
+      <geom class="pocket" mesh="hollow_cylinder1" pos="-0.675 -1.31 -0.0001">
+        <plugin instance="hollow_cylinder1"/>
+      </geom>
+
+      <!-- Top right -->
+      <geom class="pocket" mesh="hollow_cylinder1" pos="0.675 1.31 -0.0001">
+        <plugin instance="hollow_cylinder1"/>
+      </geom>
+
+      <!-- Middle right -->
+      <geom class="pocket" mesh="hollow_cylinder2" pos="0.717426 0 -0.0001">
+        <plugin instance="hollow_cylinder2"/>
+      </geom>
+
+      <!-- Bottom right -->
+      <geom class="pocket" mesh="hollow_cylinder1" pos="0.675 -1.31 -0.0001">
+        <plugin instance="hollow_cylinder1"/>
+      </geom>
+
+      <geom class="surface-y1" pos="-0.816213 0.655 0" />
+      <geom class="surface-y1" pos="-0.816213 -0.655 0" />
+      <geom class="surface-y1" pos="0.816213 0.655 0" />
+      <geom class="surface-y1" pos="0.816213 -0.655 0" />
+
+      <geom class="surface-y2" pos="-0.696213 0.655 0" />
+      <geom class="surface-y2" pos="-0.696213 -0.655 0" />
+      <geom class="surface-y2" pos="0.696213 0.655 0" />
+      <geom class="surface-y2" pos="0.696213 -0.655 0" />
+
+      <geom class="surface-x1" pos="0 1.43 0" />
+      <geom class="surface-x1" pos="0 -1.43 0" />
+
+      <geom class="surface-x2" pos="0 1.31 0" />
+      <geom class="surface-x2" pos="0 -1.31 0" />
+
+      <geom class="surface-center" pos="0 0 0" />
+
+      <!-- Center spot -->
+      <site class="spot" pos="0 0 0.05" />
+
+      <!-- Foot spot -->
+      <site class="spot" pos="0 0.635 0.05" />
+
+      <!-- Head spot -->
+      <site class="spot" pos="0 -0.635 0.05" />
+    </body>
+
+    <!-- Elevated parts around the surface -->
+    <!-- Base z-coordinate of the surface 1 + surface thickness 0.05 + half of upper thickness 0.02 = 1.070 -->
+    <body pos="0 0 1.070">
+      <geom class="pocket-wood" mesh="half_hollow_cylinder1" pos="-0.675 1.31 0" euler="0 0 135">
+        <plugin instance="half_hollow_cylinder1"/>
+      </geom>
+
+      <geom class="pocket-wood" mesh="half_hollow_cylinder2" pos="-0.717426 0 0" euler="0 0 180">
+        <plugin instance="half_hollow_cylinder2"/>
+      </geom>
+
+      <geom class="pocket-wood" mesh="half_hollow_cylinder1" pos="-0.675 -1.31 0" euler="0 0 225">
+        <plugin instance="half_hollow_cylinder1"/>
+      </geom>
+
+      <geom class="pocket-wood" mesh="half_hollow_cylinder1" pos="0.675 1.31 0" euler="0 0 45">
+        <plugin instance="half_hollow_cylinder1"/>
+      </geom>
+
+      <geom class="pocket-wood" mesh="half_hollow_cylinder2" pos="0.717426 0 0" euler="0 0 0">
+        <plugin instance="half_hollow_cylinder2"/>
+      </geom>
+
+      <geom class="pocket-wood" mesh="half_hollow_cylinder1" pos="0.675 -1.31 0" euler="0 0 315">
+        <plugin instance="half_hollow_cylinder1"/>
+      </geom>
+
+      <geom class="upper-x1" pos="0 1.43 0" />
+      <geom class="upper-x1" pos="0 -1.43 0" />
+
+      <geom class="upper-x2" pos="0 1.37 0" />
+      <geom class="upper-x2" pos="0 -1.37 0" />
+
+      <geom class="upper-y1" pos="-0.816213 0.655 0" />
+      <geom class="upper-y1" pos="-0.816213 -0.655 0" />
+      <geom class="upper-y1" pos="0.816213 0.655 0" />
+      <geom class="upper-y1" pos="0.816213 -0.655 0" />
+
+      <geom class="upper-y2" pos="-0.747426 0.663787 0" />
+      <geom class="upper-y2" pos="-0.747426 -0.663787 0" />
+      <geom class="upper-y2" pos="0.747426 0.663787 0" />
+      <geom class="upper-y2" pos="0.747426 -0.663787 0" />
+
+      <!-- Point marks -->
+      <site class="spot" pos="-0.77 0.3175 0.020" />
+      <site class="spot" pos="-0.77 0.635 0.020" />
+      <site class="spot" pos="-0.77 0.9525 0.020" />
+      <site class="spot" pos="-0.77 -0.3175 0.020" />
+      <site class="spot" pos="-0.77 -0.635 0.020" />
+      <site class="spot" pos="-0.77 -0.9525 0.020" />
+
+      <site class="spot" pos="0.77 0.3175 0.020" />
+      <site class="spot" pos="0.77 0.635 0.020" />
+      <site class="spot" pos="0.77 0.9525 0.020" />
+      <site class="spot" pos="0.77 -0.3175 0.020" />
+      <site class="spot" pos="0.77 -0.635 0.020" />
+      <site class="spot" pos="0.77 -0.9525 0.020" />
+
+    </body>
+
+    <!-- Cushions -->
+    <!-- Base z-coordinate of the surface 1 + surface thickness 0.05 = 1.050 -->
+    <body pos="0 0 1.050">
+
+      <geom class="cushion-x" mesh="trapezoid_x" euler="90 0 0" pos="0 1.332426 0.035">
+        <plugin instance="trapezoid_x"/>
+      </geom>
+      <geom class="cylinder-x" pos="0 1.314926 0.035"/>
+
+
+      <geom class="cushion-x" mesh="trapezoid_x" euler="270 0 0" pos="0 -1.332426 0.035">
+        <plugin instance="trapezoid_x"/>
+      </geom>
+      <geom class="cylinder-x" pos="0 -1.314926 0.035"/>
+
+      <geom class="cushion-y" mesh="trapezoid_y" euler="90 90 0" pos="-0.70 0.663787 0.035">
+        <plugin instance="trapezoid_y"/>
+      </geom>
+      <geom class="cylinder-y" pos="-0.6825 0.663787 0.035"/>
+
+      <geom class="cushion-y" mesh="trapezoid_y" euler="90 90 0" pos="-0.70 -0.663787 0.035">
+        <plugin instance="trapezoid_y"/>
+      </geom>
+      <geom class="cylinder-y" pos="-0.6825 -0.663787 0.035"/>
+
+      <geom class="cushion-y" mesh="trapezoid_y" euler="90 270 0" pos="0.70 0.663787 0.035">
+        <plugin instance="trapezoid_y"/>
+      </geom>
+      <geom class="cylinder-y" pos="0.6825 0.663787 0.035"/>
+
+      <geom class="cushion-y" mesh="trapezoid_y" euler="90 270 0" pos="0.70 -0.663787 0.035">
+        <plugin instance="trapezoid_y"/>
+      </geom>
+      <geom class="cylinder-y" pos="0.6825 -0.663787 0.035"/>
+
+    </body>
+
+  </worldbody>
+
+</mujoco>

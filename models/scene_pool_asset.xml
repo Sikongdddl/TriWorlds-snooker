@@ -1,17 +1,27 @@
-<mujoco model="pool_table_traditional_asset_scene">
-  <compiler angle="radian" coordinate="local" autolimits="true" />
-  <option timestep="0.00025" gravity="0 0 -9.81" integrator="RK4" solver="Newton" iterations="80" />
+<mujoco model="mujoco_billiards_robot_scene">
+  <!-- Load the reusable ball class, textures, and materials directly from the
+       source repository. The compiler override resolves those source textures
+       while keeping this repository's robot and cue meshes resolvable. -->
+  <include file="/home/ubuntu/mujoco-billiards/ball-definitions.xml"/>
+  <compiler angle="degree" coordinate="local" autolimits="true"
+            meshdir="/home/ubuntu/TriWorlds-snooker/models"
+            texturedir="/home/ubuntu/mujoco-billiards/img"/>
+  <!-- Use a practical interactive step while retaining the source contact
+       geometry and material parameters. -->
+  <option timestep="0.00001" gravity="0 0 -9.81" integrator="Euler"
+          solver="Newton" iterations="80" tolerance="1e-8"/>
   <visual>
-    <headlight ambient="0.45 0.45 0.45" diffuse="0.8 0.8 0.8" specular="0.25 0.25 0.25" />
+    <global offheight="720" offwidth="720"/>
   </visual>
   <worldbody>
-    <light name="key_light" pos="0 -2.5 3.0" dir="0 0 -1" diffuse="0.9 0.9 0.86" />
-    <camera name="asset_overview" pos="0 -3.2 1.7" xyaxes="1 0 0 0 0.48 0.88" />
+    <!-- Cameras copied from mujoco-billiards/nine-ball.xml. -->
+    <camera name="cam1" pos="0 -2.0 2.5" euler="45 0 0"/>
+    <camera name="cam2" pos="0 0 4.3"/>
   </worldbody>
-  <include file="pool_table_asset.xml" />
-  <include file="table_physics.xml" />
-  <include file="balls_physics.xml" />
-  <include file="cue_physics.xml" />
-  <include file="lift_articulated.xml" />
-  <include file="grip_constraints.xml" />
+  <include file="mujoco_billiards/billiard-table-definitions.xml"/>
+  <include file="mujoco_billiards_integration.xml"/>
+  <include file="balls_physics.xml"/>
+  <include file="cue_physics.xml"/>
+  <include file="lift_articulated.xml"/>
+  <include file="grip_constraints.xml"/>
 </mujoco>
