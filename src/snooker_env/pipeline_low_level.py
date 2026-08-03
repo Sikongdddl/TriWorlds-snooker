@@ -32,6 +32,13 @@ LIFT_ARM_JOINTS: tuple[str, ...] = (
 )
 
 
+GENTO_ARM_JOINTS: tuple[str, ...] = tuple(
+    f"gento_arm_{side}_joint_{index}"
+    for side in ("right", "left")
+    for index in range(1, 8)
+)
+
+
 class PassiveToolDesignController(LowLevelPolicy):
     """Placeholder for a mechanical fixture mounted on the robot."""
 

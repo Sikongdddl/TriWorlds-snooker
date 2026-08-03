@@ -1,0 +1,235 @@
+<mujoco model="gento_side_grasp_robot">
+  <compiler angle="degree" coordinate="local" autolimits="true" balanceinertia="true" />
+  <asset>
+    <material name="gento_body_dark" rgba="0.34 0.38 0.44 1" />
+    <material name="gento_body_light" rgba="0.79 0.82 0.93 1" />
+    <material name="gento_wheel" rgba="0.09 0.10 0.12 1" />
+    <mesh name="gento_mesh_arm_left_link_1" file="../assets/robots/gento/meshes/arm left_Link_1.STL" />
+    <mesh name="gento_mesh_arm_left_link_2" file="../assets/robots/gento/meshes/arm left_Link_2.STL" />
+    <mesh name="gento_mesh_arm_left_link_3" file="../assets/robots/gento/meshes/arm left_Link_3.STL" />
+    <mesh name="gento_mesh_arm_left_link_4" file="../assets/robots/gento/meshes/arm left_Link_4.STL" />
+    <mesh name="gento_mesh_arm_left_link_5" file="../assets/robots/gento/meshes/arm left_Link_5.STL" />
+    <mesh name="gento_mesh_arm_left_link_6" file="../assets/robots/gento/meshes/arm left_Link_6.STL" />
+    <mesh name="gento_mesh_arm_left_link_7" file="../assets/robots/gento/meshes/arm left_Link_7.STL" />
+    <mesh name="gento_mesh_arm_right_link_1" file="../assets/robots/gento/meshes/arm right_Link_1.STL" />
+    <mesh name="gento_mesh_arm_right_link_2" file="../assets/robots/gento/meshes/arm right_Link_2.STL" />
+    <mesh name="gento_mesh_arm_right_link_3" file="../assets/robots/gento/meshes/arm right_Link_3.STL" />
+    <mesh name="gento_mesh_arm_right_link_4" file="../assets/robots/gento/meshes/arm right_Link_4.STL" />
+    <mesh name="gento_mesh_arm_right_link_5" file="../assets/robots/gento/meshes/arm right_Link_5.STL" />
+    <mesh name="gento_mesh_arm_right_link_6" file="../assets/robots/gento/meshes/arm right_Link_6.STL" />
+    <mesh name="gento_mesh_arm_right_link_7" file="../assets/robots/gento/meshes/arm right_Link_7.STL" />
+    <mesh name="gento_mesh_base_link" file="../assets/robots/gento/meshes/base_link.obj" />
+    <mesh name="gento_mesh_head_link_1" file="../assets/robots/gento/meshes/head_Link_1.STL" />
+    <mesh name="gento_mesh_head_link_2" file="../assets/robots/gento/meshes/head_Link_2.STL" />
+    <mesh name="gento_mesh_left_back_wheel_link_1" file="../assets/robots/gento/meshes/left_back wheel_Link_1.STL" />
+    <mesh name="gento_mesh_left_back_wheel_link_2" file="../assets/robots/gento/meshes/left_back wheel_Link_2.STL" />
+    <mesh name="gento_mesh_left_front_wheel_link_1" file="../assets/robots/gento/meshes/left_front wheel_Link_1.STL" />
+    <mesh name="gento_mesh_left_front_wheel_link_2" file="../assets/robots/gento/meshes/left_front wheel_Link_2.STL" />
+    <mesh name="gento_mesh_right_back_wheel_link_1" file="../assets/robots/gento/meshes/right_back wheel_Link_1.STL" />
+    <mesh name="gento_mesh_right_back_wheel_link_2" file="../assets/robots/gento/meshes/right_back wheel_Link_2.STL" />
+    <mesh name="gento_mesh_right_front_wheel_link_1" file="../assets/robots/gento/meshes/right_front wheel_Link_1.STL" />
+    <mesh name="gento_mesh_right_front_wheel_link_2" file="../assets/robots/gento/meshes/right_front wheel_Link_2.STL" />
+    <mesh name="gento_mesh_waist_link_1_prismatic" file="../assets/robots/gento/meshes/waist_Link_1_prismatic.STL" />
+    <mesh name="gento_mesh_waist_link_2" file="../assets/robots/gento/meshes/waist_Link_2.STL" />
+    <mesh name="gento_mesh_waist_link_3" file="../assets/robots/gento/meshes/waist_Link_3.STL" />
+  </asset>
+  <worldbody>
+    <body name="gento_root" pos="0.82 -1.50 0" quat="0 0 0 1">
+      <geom name="gento_visual_base_link" type="mesh" mesh="gento_mesh_base_link" material="gento_body_dark" contype="0" conaffinity="0" density="0" />
+      <body name="gento_left_front_wheel_link_1" pos="0.23 0.218 0.07" quat="0.0856911076 0 0 0.996321752" gravcomp="1">
+        <inertial pos="4.7177e-05 -0.024805 0.07456" mass="0.62533" fullinertia="0.00162503 0.00128395 0.00067321 7.3e-07 1.66e-06 0.00056317" />
+        <geom name="gento_visual_left_front_wheel_link_1" type="mesh" mesh="gento_mesh_left_front_wheel_link_1" material="gento_wheel" contype="0" conaffinity="0" density="0" />
+        <body name="gento_left_front_wheel_link_2" pos="0 0 0" quat="0.707105483 -0.70710808 0 0" gravcomp="1">
+          <inertial pos="-2.4502e-06 -1.1071e-05 0.00050816" mass="1.2504" fullinertia="0.00253623 0.00253644 0.00383541 1e-08 -2e-08 4.3e-07" />
+          <geom name="gento_visual_left_front_wheel_link_2" type="mesh" mesh="gento_mesh_left_front_wheel_link_2" material="gento_wheel" contype="0" conaffinity="0" density="0" />
+        </body>
+      </body>
+      <body name="gento_right_front_wheel_link_1" pos="0.23 -0.218 0.07" quat="1 0 0 0" gravcomp="1">
+        <inertial pos="-4.7177e-05 0.024805 0.07456" mass="0.62533" fullinertia="0.00162503 0.00128395 0.00067321 7.3e-07 -1.65e-06 -0.00056317" />
+        <geom name="gento_visual_right_front_wheel_link_1" type="mesh" mesh="gento_mesh_right_front_wheel_link_1" material="gento_wheel" contype="0" conaffinity="0" density="0" />
+        <body name="gento_right_front_wheel_link_2" pos="0 0 0" quat="0.707105483 -0.70710808 0 0" gravcomp="1">
+          <inertial pos="2.4502e-06 -1.1071e-05 -0.00050816" mass="1.2504" fullinertia="0.00253623 0.00253644 0.00383541 -1e-08 -2e-08 -4.3e-07" />
+          <geom name="gento_visual_right_front_wheel_link_2" type="mesh" mesh="gento_mesh_right_front_wheel_link_2" material="gento_wheel" contype="0" conaffinity="0" density="0" />
+        </body>
+      </body>
+      <body name="gento_left_back_wheel_link_1" pos="-0.23 0.218 0.07" quat="1 0 0 0" gravcomp="1">
+        <inertial pos="4.7177e-05 -0.024805 0.07456" mass="0.62533" fullinertia="0.00162503 0.00128395 0.00067321 7.3e-07 1.66e-06 0.00056317" />
+        <geom name="gento_visual_left_back_wheel_link_1" type="mesh" mesh="gento_mesh_left_back_wheel_link_1" material="gento_wheel" contype="0" conaffinity="0" density="0" />
+        <body name="gento_left_back_wheel_link_2" pos="0 0 0" quat="0.707105483 -0.70710808 0 0" gravcomp="1">
+          <inertial pos="-2.4502e-06 -1.1071e-05 0.00050816" mass="1.2504" fullinertia="0.00253623 0.00253644 0.00383541 1e-08 -2e-08 4.3e-07" />
+          <geom name="gento_visual_left_back_wheel_link_2" type="mesh" mesh="gento_mesh_left_back_wheel_link_2" material="gento_wheel" contype="0" conaffinity="0" density="0" />
+        </body>
+      </body>
+      <body name="gento_right_back_wheel_link_1" pos="-0.23 -0.218 0.07" quat="1 0 0 0" gravcomp="1">
+        <inertial pos="-4.7177e-05 0.024805 0.07456" mass="0.62533" fullinertia="0.00162503 0.00128395 0.00067321 7.3e-07 -1.65e-06 -0.00056317" />
+        <geom name="gento_visual_right_back_wheel_link_1" type="mesh" mesh="gento_mesh_right_back_wheel_link_1" material="gento_wheel" contype="0" conaffinity="0" density="0" />
+        <body name="gento_right_back_wheel_link_2" pos="0 0 0" quat="0.707105483 -0.70710808 0 0" gravcomp="1">
+          <inertial pos="2.4502e-06 -1.1071e-05 -0.00050816" mass="1.2504" fullinertia="0.00253623 0.00253644 0.00383541 -1e-08 -2e-08 -4.3e-07" />
+          <geom name="gento_visual_right_back_wheel_link_2" type="mesh" mesh="gento_mesh_right_back_wheel_link_2" material="gento_wheel" contype="0" conaffinity="0" density="0" />
+        </body>
+      </body>
+      <body name="gento_waist_link_1_prismatic" pos="0.18048 0 0.36213" quat="1 0 0 0" gravcomp="1">
+        <joint name="gento_waist_jiont_1_prismatic" type="slide" axis="0 0 1" damping="50" armature="0.08" range="0 0.86" />
+        <inertial pos="-0.043051 -0.00099026 -0.0031441" mass="6.0547" fullinertia="0.013887 0.041848 0.03664 0.00025825 -0.0014717 1.8808e-05" />
+        <geom name="gento_visual_waist_link_1_prismatic" type="mesh" mesh="gento_mesh_waist_link_1_prismatic" material="gento_body_dark" contype="0" conaffinity="0" density="0" />
+        <body name="gento_waist_link_2" pos="0 0 0" quat="0.707105483 0.70710808 0 0" gravcomp="1">
+          <joint name="gento_waist_joint_2" type="hinge" axis="0 0 1" damping="5" armature="0.025" range="-90.0002105 0" />
+          <inertial pos="0.0026414 0.02235 -0.0012175" mass="5.3538" fullinertia="0.04609582 0.04430159 0.02076499 0.00043467 1.785e-05 0.00014534" />
+          <geom name="gento_visual_waist_link_2" type="mesh" mesh="gento_mesh_waist_link_2" material="gento_body_dark" contype="0" conaffinity="0" density="0" />
+          <body name="gento_waist_link_3" pos="0 0 0" quat="0.707105483 -0.70710808 0 0" gravcomp="1">
+            <joint name="gento_waist_joint_3" type="hinge" axis="0 0 1" damping="5" armature="0.025" range="-24.9981486 24.9981486" />
+            <inertial pos="0.0041391 9.144e-05 0.34664435" mass="17.4767" fullinertia="0.36345315 0.33755628 0.16205022 -0.00022069 0.00340584 -0.00018698" />
+            <geom name="gento_visual_waist_link_3" type="mesh" mesh="gento_mesh_waist_link_3" material="gento_body_light" contype="0" conaffinity="0" density="0" />
+            <body name="gento_arm_right_link_1" pos="0 -0.2305 0.4335" quat="0.707105483 0.70710808 0 0" gravcomp="1">
+              <joint name="gento_arm_right_joint_1" type="hinge" axis="0 0 1" damping="5" armature="0.025" range="-178.000798 178.000798" />
+              <inertial pos="1.15e-06 -0.0016087 -0.027255" mass="2.25" fullinertia="0.0052802 0.0061121 0.002573 -1.1e-07 0 -9.865e-05" />
+              <geom name="gento_visual_arm_right_link_1" type="mesh" mesh="gento_mesh_arm_right_link_1" material="gento_body_light" contype="0" conaffinity="0" density="0" />
+              <geom name="gento_table_proxy_arm_right_link_1" type="box" pos="2.85580754e-05 -3.02493572e-06 -0.0380891021" size="0.0479821453 0.0438356058 0.0807633715" rgba="0.12 0.68 1 0" group="4" contype="16" conaffinity="8" condim="4" friction="0.70 0.01 0.001" solref="0.004 1" solimp="0.92 0.99 0.002" density="0" />
+              <body name="gento_arm_right_link_2" pos="0 0 0" quat="0.707105483 0.70710808 0 0" gravcomp="1">
+                <joint name="gento_arm_right_joint_2" type="hinge" axis="0 0 1" damping="5" armature="0.025" range="-120.000281 120.000281" />
+                <inertial pos="1.34e-06 0.046956 -0.001486" mass="1.85" fullinertia="0.0087872 0.0038695 0.0073 -7e-08 1e-07 0.00012909" />
+                <geom name="gento_visual_arm_right_link_2" type="mesh" mesh="gento_mesh_arm_right_link_2" material="gento_body_light" contype="0" conaffinity="0" density="0" />
+                <geom name="gento_table_proxy_arm_right_link_2" type="box" pos="1.86264515e-09 0.0453258138 -1.52736902e-07" size="0.0496442106 0.0882997889 0.0554920421" rgba="0.12 0.68 1 0" group="4" contype="16" conaffinity="8" condim="4" friction="0.70 0.01 0.001" solref="0.004 1" solimp="0.92 0.99 0.002" density="0" />
+                <body name="gento_arm_right_link_3" pos="0 0.287 0" quat="0.707105483 -0.70710808 0 0" gravcomp="1">
+                  <joint name="gento_arm_right_joint_3" type="hinge" axis="0 0 1" damping="5" armature="0.025" range="-178.000798 178.000798" />
+                  <inertial pos="0.0058493 0.00090247 -0.05684" mass="1.75" fullinertia="0.0057967 0.0062724 0.0018218 1.918e-05 0.00066746 8.977e-05" />
+                  <geom name="gento_visual_arm_right_link_3" type="mesh" mesh="gento_mesh_arm_right_link_3" material="gento_body_light" contype="0" conaffinity="0" density="0" />
+                  <geom name="gento_table_proxy_arm_right_link_3" type="box" pos="0.0110602863 0 -0.0465796869" size="0.0492696042 0.0397791654 0.0833514823" rgba="0.12 0.68 1 0" group="4" contype="16" conaffinity="8" condim="4" friction="0.70 0.01 0.001" solref="0.004 1" solimp="0.92 0.99 0.002" density="0" />
+                  <body name="gento_arm_right_link_4" pos="0.018 0 0" quat="0.707105483 0.70710808 0 0" gravcomp="1">
+                    <joint name="gento_arm_right_joint_4" type="hinge" axis="0 0 1" damping="5" armature="0.025" range="-144.998429 60.0001403" />
+                    <inertial pos="-0.0076264 0.036752 0.0015397" mass="1.35" fullinertia="0.0045995 0.002472 0.0037317 -0.00047302 1.59e-05 -7.646e-05" />
+                    <geom name="gento_visual_arm_right_link_4" type="mesh" mesh="gento_mesh_arm_right_link_4" material="gento_body_light" contype="0" conaffinity="0" density="0" />
+                    <geom name="gento_table_proxy_arm_right_link_4" type="box" pos="-0.00427396968 0.035287967 0" size="0.0470643864 0.073712335 0.0507400003" rgba="0.12 0.68 1 0" group="4" contype="16" conaffinity="8" condim="4" friction="0.70 0.01 0.001" solref="0.004 1" solimp="0.92 0.99 0.002" density="0" />
+                    <body name="gento_arm_right_link_5" pos="-0.018 0.314 0" quat="0.707105483 -0.70710808 0 0" gravcomp="1">
+                      <joint name="gento_arm_right_joint_5" type="hinge" axis="0 0 1" damping="5" armature="0.025" range="-178.000798 178.000798" />
+                      <inertial pos="-8.8273e-07 0.00089019 -0.11388" mass="1.45" fullinertia="0.00440269 0.00378792 0.00200876 0 -1.2e-07 0.00013132" />
+                      <geom name="gento_visual_arm_right_link_5" type="mesh" mesh="gento_mesh_arm_right_link_5" material="gento_body_light" contype="0" conaffinity="0" density="0" />
+                      <geom name="gento_table_proxy_arm_right_link_5" type="box" pos="3.37138772e-07 0 -0.0872499943" size="0.0378402193 0.0503099994 0.0952450168" rgba="0.12 0.68 1 0" group="4" contype="16" conaffinity="8" condim="4" friction="0.70 0.01 0.001" solref="0.004 1" solimp="0.92 0.99 0.002" density="0" />
+                      <body name="gento_arm_right_link_6" pos="0 0 0" quat="0.707105483 0.70710808 0 0" gravcomp="1">
+                        <joint name="gento_arm_right_joint_6" type="hinge" axis="0 0 1" damping="5" armature="0.025" range="-60.0001403 60.0001403" />
+                        <inertial pos="-0.0040618 1.2472e-07 -3.7325e-08" mass="1.1" fullinertia="0.0008362 0.00077682 0.00072561 0 0 0" />
+                        <geom name="gento_visual_arm_right_link_6" type="mesh" mesh="gento_mesh_arm_right_link_6" material="gento_body_light" contype="0" conaffinity="0" density="0" />
+                        <geom name="gento_table_proxy_arm_right_link_6" type="box" pos="-0.0022499999 0 0" size="0.0281650002 0.0330929911 0.0387000015" rgba="0.12 0.68 1 0" group="4" contype="16" conaffinity="8" condim="4" friction="0.70 0.01 0.001" solref="0.004 1" solimp="0.92 0.99 0.002" density="0" />
+                        <body name="gento_arm_right_link_7" pos="0 0 0" quat="0.499998163 0.5 0.500001837 0.5" gravcomp="1">
+                          <joint name="gento_arm_right_joint_7" type="hinge" axis="0 0 1" damping="5" armature="0.025" range="-90.0002105 90.0002105" />
+                          <inertial pos="0.037261 -2.2392e-05 0.0051669" mass="0.34882" fullinertia="0.00047214 0.00090209 0.00066079 -7.0446e-07 6.3325e-05 6.935e-08" />
+                          <geom name="gento_visual_arm_right_link_7" type="mesh" mesh="gento_mesh_arm_right_link_7" material="gento_body_light" contype="0" conaffinity="0" density="0" />
+                          <geom name="gento_table_proxy_arm_right_link_7" type="box" pos="0.0283381343 1.86264515e-08 -0.000749843195" size="0.0573292291 0.0352600586 0.0457948637" rgba="0.12 0.68 1 0" group="4" contype="16" conaffinity="8" condim="4" friction="0.70 0.01 0.001" solref="0.004 1" solimp="0.92 0.99 0.002" density="0" />
+                          <body name="gento_right_gripper_mount" pos="0.095 0 0">
+                            <geom name="gento_right_palm_guard" type="box" pos="0.025 0 0" size="0.025 0.048 0.048" rgba="0.16 0.20 0.25 1" contype="80" conaffinity="40" condim="4" priority="3" friction="0.45 0.005 0.001" solref="0.003 1" solimp="0.94 0.99 0.001" />
+                            <geom name="gento_right_palm_face" type="box" pos="0.052 0 0" size="0.004 0.042 0.040" rgba="0.18 0.65 0.82 1" contype="0" conaffinity="0" density="0" />
+                            <body name="gento_right_upper_finger" pos="0.09 0 0.044" gravcomp="1">
+                              <joint name="gento_right_upper_finger_joint" type="slide" axis="0 0 1" range="-0.03 0" damping="10" armature="0.003" />
+                              <geom name="gento_right_upper_finger_pad" type="box" size="0.040 0.022 0.008" mass="0.09" rgba="1 0.38 0.12 1" contype="80" conaffinity="40" condim="4" priority="4" friction="0.10 0.002 0.0002" solref="0.002 1" solimp="0.95 0.995 0.001" />
+                            </body>
+                            <body name="gento_right_lower_finger" pos="0.09 0 -0.044" gravcomp="1">
+                              <joint name="gento_right_lower_finger_joint" type="slide" axis="0 0 1" range="0 0.03" damping="10" armature="0.003" />
+                              <geom name="gento_right_lower_finger_pad" type="box" size="0.040 0.022 0.008" mass="0.09" rgba="1 0.38 0.12 1" contype="80" conaffinity="40" condim="4" priority="4" friction="0.10 0.002 0.0002" solref="0.002 1" solimp="0.95 0.995 0.001" />
+                            </body>
+                            <site name="gento_right_gripper_tcp" pos="0.090 0 0" size="0.014" rgba="1 0.38 0.12 1" />
+                            <site name="gento_right_approach_axis" type="capsule" fromto="0.045 0 0 0.125 0 0" size="0.003" rgba="1 0.9 0.1 0.8" />
+                          </body>
+                        </body>
+                      </body>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+            <body name="gento_arm_left_link_1" pos="0 0.2305 0.4335" quat="0.707105483 -0.70710808 0 0" gravcomp="1">
+              <joint name="gento_arm_left_joint_1" type="hinge" axis="0 0 1" damping="5" armature="0.025" range="-178.000798 178.000798" />
+              <inertial pos="1.15e-06 -0.00160874 -0.02725458" mass="2.25" fullinertia="0.00528015 0.00611211 0.00611486 -1.1e-07 0 -9.865e-05" />
+              <geom name="gento_visual_arm_left_link_1" type="mesh" mesh="gento_mesh_arm_left_link_1" material="gento_body_light" contype="0" conaffinity="0" density="0" />
+              <geom name="gento_table_proxy_arm_left_link_1" type="box" pos="2.85580754e-05 -3.02493572e-06 -0.0380891021" size="0.0479821453 0.0438356058 0.0807633715" rgba="0.12 0.68 1 0" group="4" contype="16" conaffinity="8" condim="4" friction="0.70 0.01 0.001" solref="0.004 1" solimp="0.92 0.99 0.002" density="0" />
+              <body name="gento_arm_left_link_2" pos="0 0 0" quat="0.707105483 0.70710808 0 0" gravcomp="1">
+                <joint name="gento_arm_left_joint_2" type="hinge" axis="0 0 1" damping="5" armature="0.025" range="-120.000281 120.000281" />
+                <inertial pos="1.34e-06 0.04695591 -0.00148599" mass="1.85" fullinertia="0.00878723 0.00386948 0.0073004 -7e-08 1e-07 0.00012909" />
+                <geom name="gento_visual_arm_left_link_2" type="mesh" mesh="gento_mesh_arm_left_link_2" material="gento_body_light" contype="0" conaffinity="0" density="0" />
+                <geom name="gento_table_proxy_arm_left_link_2" type="box" pos="1.86264515e-09 0.0453258138 -1.52736902e-07" size="0.0496442106 0.0882997889 0.0554920421" rgba="0.12 0.68 1 0" group="4" contype="16" conaffinity="8" condim="4" friction="0.70 0.01 0.001" solref="0.004 1" solimp="0.92 0.99 0.002" density="0" />
+                <body name="gento_arm_left_link_3" pos="0 0.287 0" quat="0.707105483 -0.70710808 0 0" gravcomp="1">
+                  <joint name="gento_arm_left_joint_3" type="hinge" axis="0 0 1" damping="5" armature="0.025" range="-178.000798 178.000798" />
+                  <inertial pos="0.0058492 0.00090406 -0.05684" mass="1.75" fullinertia="0.00579666 0.00627241 0.00182175 1.918e-05 0.00066746 8.977e-05" />
+                  <geom name="gento_visual_arm_left_link_3" type="mesh" mesh="gento_mesh_arm_left_link_3" material="gento_body_light" contype="0" conaffinity="0" density="0" />
+                  <geom name="gento_table_proxy_arm_left_link_3" type="box" pos="0.0110602863 0 -0.0465796869" size="0.0492696042 0.0397791654 0.0833514823" rgba="0.12 0.68 1 0" group="4" contype="16" conaffinity="8" condim="4" friction="0.70 0.01 0.001" solref="0.004 1" solimp="0.92 0.99 0.002" density="0" />
+                  <body name="gento_arm_left_link_4" pos="0.018 0 0" quat="0.707105483 0.70710808 0 0" gravcomp="1">
+                    <joint name="gento_arm_left_joint_4" type="hinge" axis="0 0 1" damping="5" armature="0.025" range="-144.998429 60.0001403" />
+                    <inertial pos="-0.0076264 0.036752 0.0015397" mass="1.35" fullinertia="0.0049951 0.00247199 0.00373168 -0.00047302 1.59e-05 -7.646e-05" />
+                    <geom name="gento_visual_arm_left_link_4" type="mesh" mesh="gento_mesh_arm_left_link_4" material="gento_body_light" contype="0" conaffinity="0" density="0" />
+                    <geom name="gento_table_proxy_arm_left_link_4" type="box" pos="-0.00427396968 0.035287967 0" size="0.0470643864 0.073712335 0.0507400003" rgba="0.12 0.68 1 0" group="4" contype="16" conaffinity="8" condim="4" friction="0.70 0.01 0.001" solref="0.004 1" solimp="0.92 0.99 0.002" density="0" />
+                    <body name="gento_arm_left_link_5" pos="-0.018 0.314 0" quat="0.707106781 -0.707106781 0 0" gravcomp="1">
+                      <joint name="gento_arm_left_joint_5" type="hinge" axis="0 0 1" damping="5" armature="0.025" range="-178.000798 178.000798" />
+                      <inertial pos="0 -0.00088914 -0.11387776" mass="1.45" fullinertia="0.00440266 0.00378789 0.00200877 6e-08 -1.2e-07 -0.00013134" />
+                      <geom name="gento_visual_arm_left_link_5" type="mesh" mesh="gento_mesh_arm_left_link_5" material="gento_body_light" contype="0" conaffinity="0" density="0" />
+                      <geom name="gento_table_proxy_arm_left_link_5" type="box" pos="-1.3038516e-08 0 -0.0872499943" size="0.0378399405 0.0503099994 0.0952450168" rgba="0.12 0.68 1 0" group="4" contype="16" conaffinity="8" condim="4" friction="0.70 0.01 0.001" solref="0.004 1" solimp="0.92 0.99 0.002" density="0" />
+                      <body name="gento_arm_left_link_6" pos="0 0 0" quat="0.707105483 0.70710808 0 0" gravcomp="1">
+                        <joint name="gento_arm_left_joint_6" type="hinge" axis="0 0 1" damping="5" armature="0.025" range="-60.0001403 60.0001403" />
+                        <inertial pos="-0.0040618 0 0" mass="1.1" fullinertia="0.0008362 0.00077682 0.00072561 0 0 0" />
+                        <geom name="gento_visual_arm_left_link_6" type="mesh" mesh="gento_mesh_arm_left_link_6" material="gento_body_light" contype="0" conaffinity="0" density="0" />
+                        <geom name="gento_table_proxy_arm_left_link_6" type="box" pos="-0.0022499999 0 0" size="0.0281650002 0.0330929911 0.0387000015" rgba="0.12 0.68 1 0" group="4" contype="16" conaffinity="8" condim="4" friction="0.70 0.01 0.001" solref="0.004 1" solimp="0.92 0.99 0.002" density="0" />
+                        <body name="gento_arm_left_link_7" pos="0 0 0" quat="0.499998163 0.5 0.500001837 0.5" gravcomp="1">
+                          <joint name="gento_arm_left_joint_7" type="hinge" axis="0 0 1" damping="5" armature="0.025" range="-90.0002105 90.0002105" />
+                          <inertial pos="0.037174 2.6667e-05 0.0052611" mass="0.34794" fullinertia="0.00046781 0.00062816 0.00039057 -3.988e-08 3.166e-05 -1.8349e-08" />
+                          <geom name="gento_visual_arm_left_link_7" type="mesh" mesh="gento_mesh_arm_left_link_7" material="gento_body_light" contype="0" conaffinity="0" density="0" />
+                          <geom name="gento_table_proxy_arm_left_link_7" type="box" pos="0.0283232331 1.86264515e-08 -0.000749843195" size="0.0573420441 0.0352600586 0.0457948637" rgba="0.12 0.68 1 0" group="4" contype="16" conaffinity="8" condim="4" friction="0.70 0.01 0.001" solref="0.004 1" solimp="0.92 0.99 0.002" density="0" />
+                          <body name="gento_left_gripper_mount" pos="0.095 0 0">
+                            <geom name="gento_left_palm_guard" type="box" pos="0.025 0 0" size="0.025 0.048 0.048" rgba="0.16 0.20 0.25 1" contype="80" conaffinity="40" condim="4" priority="3" friction="0.45 0.005 0.001" solref="0.003 1" solimp="0.94 0.99 0.001" />
+                            <geom name="gento_left_palm_face" type="box" pos="0.052 0 0" size="0.004 0.042 0.040" rgba="0.18 0.65 0.82 1" contype="0" conaffinity="0" density="0" />
+                            <body name="gento_left_upper_finger" pos="0.09 0 0.044" gravcomp="1">
+                              <joint name="gento_left_upper_finger_joint" type="slide" axis="0 0 1" range="-0.03 0" damping="10" armature="0.003" />
+                              <geom name="gento_left_upper_finger_pad" type="box" size="0.040 0.022 0.008" mass="0.09" rgba="0.10 0.82 0.95 1" contype="80" conaffinity="40" condim="4" priority="4" friction="1.15 0.012 0.0015" solref="0.002 1" solimp="0.95 0.995 0.001" />
+                            </body>
+                            <body name="gento_left_lower_finger" pos="0.09 0 -0.044" gravcomp="1">
+                              <joint name="gento_left_lower_finger_joint" type="slide" axis="0 0 1" range="0 0.03" damping="10" armature="0.003" />
+                              <geom name="gento_left_lower_finger_pad" type="box" size="0.040 0.022 0.008" mass="0.09" rgba="0.10 0.82 0.95 1" contype="80" conaffinity="40" condim="4" priority="4" friction="1.15 0.012 0.0015" solref="0.002 1" solimp="0.95 0.995 0.001" />
+                            </body>
+                            <site name="gento_left_gripper_tcp" pos="0.090 0 0" size="0.014" rgba="0.10 0.82 0.95 1" />
+                            <site name="gento_left_approach_axis" type="capsule" fromto="0.045 0 0 0.125 0 0" size="0.003" rgba="1 0.9 0.1 0.8" />
+                          </body>
+                        </body>
+                      </body>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+            <body name="gento_head_link_1" pos="-0.0135 0 0.648" quat="1 0 0 0" gravcomp="1">
+              <joint name="gento_head_joint_1" type="hinge" axis="0 0 1" damping="5" armature="0.025" range="-90.0002105 90.0002105" />
+              <inertial pos="-0.00036181 -0.012522 -0.017538" mass="1.3932" fullinertia="0.0032973 0.003207 0.0016203 6.6693e-06 -4.9573e-05 0.00030602" />
+              <geom name="gento_visual_head_link_1" type="mesh" mesh="gento_mesh_head_link_1" material="gento_body_light" contype="0" conaffinity="0" density="0" />
+              <body name="gento_head_link_2" pos="0 0 0" quat="0.707105483 0.70710808 0 0" gravcomp="1">
+                <joint name="gento_head_joint_2" type="hinge" axis="0 0 1" damping="5" armature="0.025" range="-35.0019917 24.9981486" />
+                <inertial pos="0.05658 0.029152 -0.018873" mass="1.0577" fullinertia="0.00480604 0.00414727 0.0053477 0.0009986 0.00088202 0.00057025" />
+                <geom name="gento_visual_head_link_2" type="mesh" mesh="gento_mesh_head_link_2" material="gento_body_light" contype="0" conaffinity="0" density="0" />
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+  <actuator>
+    <position name="gento_waist_jiont_1_prismatic_pos" joint="gento_waist_jiont_1_prismatic" kp="6000" forcerange="-300 300" ctrlrange="0 0.86" />
+    <position name="gento_waist_joint_2_pos" joint="gento_waist_joint_2" kp="2000" forcerange="-194 194" ctrlrange="-1.5708 0" />
+    <position name="gento_waist_joint_3_pos" joint="gento_waist_joint_3" kp="2000" forcerange="-194 194" ctrlrange="-0.4363 0.4363" />
+    <position name="gento_arm_right_joint_1_pos" joint="gento_arm_right_joint_1" kp="2000" forcerange="-108 108" ctrlrange="-3.1067 3.1067" />
+    <position name="gento_arm_right_joint_2_pos" joint="gento_arm_right_joint_2" kp="2000" forcerange="-108 108" ctrlrange="-2.0944 2.0944" />
+    <position name="gento_arm_right_joint_3_pos" joint="gento_arm_right_joint_3" kp="2000" forcerange="-40 40" ctrlrange="-3.1067 3.1067" />
+    <position name="gento_arm_right_joint_4_pos" joint="gento_arm_right_joint_4" kp="2000" forcerange="-40 40" ctrlrange="-2.5307 1.0472" />
+    <position name="gento_arm_right_joint_5_pos" joint="gento_arm_right_joint_5" kp="2000" forcerange="-22 22" ctrlrange="-3.1067 3.1067" />
+    <position name="gento_arm_right_joint_6_pos" joint="gento_arm_right_joint_6" kp="2000" forcerange="-22 22" ctrlrange="-1.0472 1.0472" />
+    <position name="gento_arm_right_joint_7_pos" joint="gento_arm_right_joint_7" kp="2000" forcerange="-22 22" ctrlrange="-1.5708 1.5708" />
+    <position name="gento_arm_left_joint_1_pos" joint="gento_arm_left_joint_1" kp="2000" forcerange="-108 108" ctrlrange="-3.1067 3.1067" />
+    <position name="gento_arm_left_joint_2_pos" joint="gento_arm_left_joint_2" kp="2000" forcerange="-108 108" ctrlrange="-2.0944 2.0944" />
+    <position name="gento_arm_left_joint_3_pos" joint="gento_arm_left_joint_3" kp="2000" forcerange="-40 40" ctrlrange="-3.1067 3.1067" />
+    <position name="gento_arm_left_joint_4_pos" joint="gento_arm_left_joint_4" kp="2000" forcerange="-40 40" ctrlrange="-2.5307 1.0472" />
+    <position name="gento_arm_left_joint_5_pos" joint="gento_arm_left_joint_5" kp="2000" forcerange="-22 22" ctrlrange="-3.1067 3.1067" />
+    <position name="gento_arm_left_joint_6_pos" joint="gento_arm_left_joint_6" kp="2000" forcerange="-22 22" ctrlrange="-1.0472 1.0472" />
+    <position name="gento_arm_left_joint_7_pos" joint="gento_arm_left_joint_7" kp="2000" forcerange="-22 22" ctrlrange="-1.5708 1.5708" />
+    <position name="gento_head_joint_1_pos" joint="gento_head_joint_1" kp="180" forcerange="-22 22" ctrlrange="-1.5708 1.5708" />
+    <position name="gento_head_joint_2_pos" joint="gento_head_joint_2" kp="180" forcerange="-22 22" ctrlrange="-0.6109 0.4363" />
+    <position name="gento_right_upper_finger_joint_pos" joint="gento_right_upper_finger_joint" kp="1200" forcerange="-100 100" ctrlrange="-0.03 0" />
+    <position name="gento_right_lower_finger_joint_pos" joint="gento_right_lower_finger_joint" kp="1200" forcerange="-100 100" ctrlrange="0 0.03" />
+    <position name="gento_left_upper_finger_joint_pos" joint="gento_left_upper_finger_joint" kp="1200" forcerange="-100 100" ctrlrange="-0.03 0" />
+    <position name="gento_left_lower_finger_joint_pos" joint="gento_left_lower_finger_joint" kp="1200" forcerange="-100 100" ctrlrange="0 0.03" />
+  </actuator>
+</mujoco>

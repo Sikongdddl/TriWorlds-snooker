@@ -1,0 +1,31 @@
+<mujoco>
+  <asset>
+    <material name="gento_ball_white_mat" rgba="0.96 0.96 0.94 1"/>
+    <material name="gento_ball_red_mat" rgba="0.82 0.06 0.04 1"/>
+  </asset>
+
+  <default>
+    <default class="gento_pool_ball">
+      <geom type="sphere" size="0.028575" mass="0.170"
+            contype="2" conaffinity="7" condim="6" priority="0"
+            friction="0.10 0.001 0.00028" solref="-1e7 -1000"
+            solimp="0.95 0.99 0.001"/>
+      <joint damping="0.0001"/>
+    </default>
+  </default>
+
+  <worldbody>
+    <body name="cue_ball" pos="0 -0.616 1.078575">
+      <freejoint name="cue_ball_free"/>
+      <geom name="cue_ball_geom" class="gento_pool_ball"
+            material="gento_ball_white_mat"/>
+      <site name="cue_ball_center" pos="0 0 0" size="0.004"
+            rgba="0.1 0.1 1 1"/>
+    </body>
+    <body name="object_ball_0" pos="0 0.635 1.078575">
+      <freejoint name="object_ball_0_free"/>
+      <geom name="object_ball_0_geom" class="gento_pool_ball"
+            material="gento_ball_red_mat"/>
+    </body>
+  </worldbody>
+</mujoco>

@@ -7,6 +7,9 @@ from pathlib import Path
 import mujoco
 
 
+_LOADED_PROJECT_PLUGINS: set[Path] = set()
+
+
 def project_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
@@ -19,6 +22,13 @@ def load_model(model_path: str | Path | None = None) -> mujoco.MjModel:
     path = Path(model_path) if model_path is not None else default_model_path()
     if not path.exists():
         raise FileNotFoundError(f"MuJoCo model does not exist: {path}")
+    plugin_dir = project_root() / "local_plugins"
+    if plugin_dir.is_dir():
+        for plugin_path in sorted(plugin_dir.glob("*.so")):
+            resolved_plugin_path = plugin_path.resolve()
+            if resolved_plugin_path not in _LOADED_PROJECT_PLUGINS:
+                mujoco.mj_loadPluginLibrary(str(resolved_plugin_path))
+                _LOADED_PROJECT_PLUGINS.add(resolved_plugin_path)
     try:
         return mujoco.MjModel.from_xml_path(str(path))
     except Exception as exc:

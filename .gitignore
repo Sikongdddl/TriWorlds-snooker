@@ -8,3 +8,9 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+
+# Locally built MuJoCo plugins (rebuild from scripts/assets/).
+/local_plugins/
+
+# Generated training/evaluation artifacts; the imported final policy lives in assets/.
+/experiments/*/artifacts/

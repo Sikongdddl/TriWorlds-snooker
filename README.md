@@ -17,6 +17,8 @@ Implemented:
 - Robot-free mid-level training scene for cue/ball physics experiments.
 - Single-step two-ball Gymnasium environment and contextual PPO training path.
 - A 12-D residual joint-position Gymnasium environment with differential-IK nominal control.
+- The imported Gento Skye URDF, 14-D role-aware differential IK, and matching PPO residual checkpoint.
+- A physical Gento cue grasp: side approach, vertically closing fingers, and solid palm guards without weld constraints.
 - High/mid/low policy interface scaffold.
 - Smoke tests for model loading, cue/ball contacts, spin response, and policy interfaces.
 - Render scripts for table, cue stroke, robot scaffold, and spin-response comparison videos.
@@ -207,6 +209,24 @@ Run the low-level residual environment smoke test:
 ```bash
 python scripts/smoke_tests/run_lowlevel_residual_env_smoke.py
 ```
+
+The Gento scene keeps robot-right fixed as the forward support/direction hand
+and drives the cue axially with robot-left as the rear speed hand. It uses the
+source table collision geometry, adds robot/table collision proxies, and keeps
+the 20 mm cue shaft above the 1.090 m rail top. Build the six additional SDF
+shapes into the ignored project-local plugin directory, then validate both the
+nominal IK and imported 14-D PPO policy:
+
+```bash
+python scripts/assets/build_mujoco_billiards_sdf_plugin.py \
+  --source /path/to/mujoco-billiards \
+  --target-dir local_plugins
+python scripts/smoke_tests/run_gento_role_ik_smoke.py
+MUJOCO_GL=egl python scripts/render/render_gento_role_ik_validation.py
+```
+
+The video, contact-frame PNG, and metric JSON are written under
+`outputs/gento_dev_midlevel/`.
 
 Start a PPO training run:
 

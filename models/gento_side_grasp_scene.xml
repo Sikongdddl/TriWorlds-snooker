@@ -1,0 +1,26 @@
+<mujoco model="gento_dev_midlevel_side_grasp_scene">
+  <compiler angle="degree" coordinate="local" autolimits="true"/>
+  <option timestep="0.00005" gravity="0 0 -9.81" integrator="Euler"
+          solver="Newton" iterations="100" tolerance="1e-8"/>
+  <visual>
+    <global offwidth="1280" offheight="720"/>
+    <headlight ambient="0.42 0.42 0.42" diffuse="0.82 0.82 0.82"
+               specular="0.24 0.24 0.24"/>
+  </visual>
+  <worldbody>
+    <camera name="gento_overview" mode="targetbody" target="cue_body"
+            pos="2.6 -3.5 2.4" fovy="48"/>
+    <camera name="gento_grip_closeup" mode="targetbody" target="cue_body"
+            pos="1.25 -2.45 1.48" fovy="42"/>
+    <camera name="gento_front_portrait" mode="targetbody" target="gento_root"
+            pos="0 1.0 1.55" fovy="52"/>
+    <camera name="gento_shot_top" pos="0 -0.95 3.15" fovy="48"/>
+  </worldbody>
+
+  <include file="mujoco_billiards/billiard-table-definitions.xml"/>
+  <include file="mujoco_billiards_integration.xml"/>
+  <include file="gento_balls_physics.xml"/>
+  <include file="gento_cue_physics.xml"/>
+  <include file="gento_robot_table_collisions.xml"/>
+  <include file="gento_side_grasp_articulated.xml"/>
+</mujoco>

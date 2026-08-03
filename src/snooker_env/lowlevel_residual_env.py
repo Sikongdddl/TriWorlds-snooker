@@ -81,7 +81,7 @@ class LowLevelResidualEnv(gym.Env[np.ndarray, np.ndarray]):
         self.model_path = Path(model_path) if model_path is not None else default_model_path()
         self.model = load_model(self.model_path)
         self.data = mujoco.MjData(self.model)
-        self.controller = DualArmDifferentialIKController(self.model)
+        self.controller = self._build_controller()
         self.executor = JointPositionExecutor(self.model, self.controller.joint_names)
         self.control_decimation = int(control_decimation)
         self.control_dt = float(self.model.opt.timestep * self.control_decimation)
@@ -105,13 +105,19 @@ class LowLevelResidualEnv(gym.Env[np.ndarray, np.ndarray]):
                 self._id(mujoco.mjtObj.mjOBJ_SITE, robot_site),
                 self._id(mujoco.mjtObj.mjOBJ_SITE, cue_site),
             )
-            for robot_site, cue_site in GRIP_SITE_PAIRS
+            for robot_site, cue_site in self._grip_site_pairs()
         )
 
         self.action_space = spaces.Box(-1.0, 1.0, shape=(self.controller.action_size,), dtype=np.float32)
-        # command(14) + q/qdot(24) + actual cue state(13) + nominal(12)
-        # + previous residual(12) + cue pose error(6) + phase(1) = 82.
-        self.observation_space = spaces.Box(-1.0e6, 1.0e6, shape=(82,), dtype=np.float32)
+        # command(14) + q/qdot(2N) + actual cue state(13) + nominal(N)
+        # + previous residual(N) + cue pose error(6) + phase(1) = 34 + 4N.
+        observation_size = 34 + 4 * self.controller.action_size
+        self.observation_space = spaces.Box(
+            -1.0e6,
+            1.0e6,
+            shape=(observation_size,),
+            dtype=np.float32,
+        )
 
         self._configured_command = command
         self.command: CueCommand | None = None
@@ -124,6 +130,21 @@ class LowLevelResidualEnv(gym.Env[np.ndarray, np.ndarray]):
         self._peak_cue_ball_speed = 0.0
         self.contact_monitor.reset()
         self._has_reset = False
+
+    def _build_controller(self) -> DualArmDifferentialIKController:
+        """Build the nominal controller; robot-specific envs may override."""
+
+        return DualArmDifferentialIKController(self.model)
+
+    def _grip_site_pairs(self) -> tuple[tuple[str, str], ...]:
+        """Return robot TCP/cue reference pairs used by generic metrics."""
+
+        return GRIP_SITE_PAIRS
+
+    def _set_ready_pose(self) -> None:
+        """Initialize the robot pose; specialized environments may override."""
+
+        set_lift_grip_ready_pose(self.model, self.data)
 
     def _id(self, object_type: mujoco.mjtObj, name: str) -> int:
         object_id = mujoco.mj_name2id(self.model, object_type, name)
@@ -224,7 +245,7 @@ class LowLevelResidualEnv(gym.Env[np.ndarray, np.ndarray]):
     ) -> tuple[np.ndarray, dict[str, Any]]:
         super().reset(seed=seed)
         mujoco.mj_resetData(self.model, self.data)
-        set_lift_grip_ready_pose(self.model, self.data)
+        self._set_ready_pose()
         self.controller.reset_reference(self.data)
         self._episode_start_time = float(self.data.time)
         self._start_pose = self._cue_pose()

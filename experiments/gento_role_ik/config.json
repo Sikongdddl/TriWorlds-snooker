@@ -1,0 +1,23 @@
+{
+  "algorithm": "PPO",
+  "policy": "MlpPolicy",
+  "environment": "snooker_env.gento_ik_env.GentoRoleIKEnv",
+  "nominal_controller": "GentoBridgeStrokeDifferentialIKController",
+  "support_hand": "robot-right",
+  "speed_hand": "robot-left",
+  "total_timesteps": 100000,
+  "seed": 0,
+  "device": "cpu",
+  "randomize_command": true,
+  "stroke_range_m": [0.045, 0.075],
+  "speed_range_m_per_s": [0.06, 0.135],
+  "residual_scale": 0.006,
+  "initial_policy_std": 0.367879,
+  "control_dt": 0.01,
+  "n_steps": 1024,
+  "batch_size": 256,
+  "learning_rate": 0.0003,
+  "gamma": 0.99,
+  "checkpoint_frequency": 10000,
+  "evaluation_episodes": 20
+}

@@ -1,0 +1,1613 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot
+  name="00_轮式升降机器人Marvin Max - 3">
+  <link
+    name="base_link">
+    <inertial>
+      <origin
+        xyz="-0.05101 -4.8259E-05 0.46368"
+        rpy="0 0 0" />
+      <mass
+        value="140.55" />
+      <inertia
+        ixx="28.78517564"
+        ixy="0.01493498"
+        ixz="-1.47161285"
+        iyy="28.33210441"
+        iyz="-0.0115855"
+        izz="4.86318095" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.59216 0.61961 0.65098 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="left_front wheel_Link_1">
+    <inertial>
+      <origin
+        xyz="4.7177E-05 -0.024805 0.07456"
+        rpy="0 0 0" />
+      <mass
+        value="0.62533" />
+      <inertia
+        ixx="0.00162503"
+        ixy="7.3E-07"
+        ixz="1.66E-06"
+        iyy="0.00128395"
+        iyz="0.00056317"
+        izz="0.00067321" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/left_front wheel_Link_1.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/left_front wheel_Link_1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="left_front wheel_joint_1"
+    type="revolute">
+    <origin
+      xyz="0.23 0.218 0.07"
+      rpy="0 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="left_front wheel_Link_1" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="2.97"
+      upper="2.97"
+      effort="0"
+      velocity="6.28" />
+  </joint>
+  <link
+    name="left_front wheel_Link_2">
+    <inertial>
+      <origin
+        xyz="-2.4502E-06 -1.1071E-05 0.00050816"
+        rpy="0 0 0" />
+      <mass
+        value="1.2504" />
+      <inertia
+        ixx="0.00253623"
+        ixy="1E-08"
+        ixz="-2E-08"
+        iyy="0.00253644"
+        iyz="4.3E-07"
+        izz="0.00383541" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/left_front wheel_Link_2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.8902 0.8902 0.91373 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/left_front wheel_Link_2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="left_front wheel_joint_2"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="-1.5708 0 0" />
+    <parent
+      link="left_front wheel_Link_1" />
+    <child
+      link="left_front wheel_Link_2" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-2.97"
+      upper="2.97"
+      effort="0"
+      velocity="6.28" />
+  </joint>
+  <link
+    name="right_front wheel_Link_1">
+    <inertial>
+      <origin
+        xyz="-4.7177E-05 0.024805 0.07456"
+        rpy="0 0 0" />
+      <mass
+        value="0.62533" />
+      <inertia
+        ixx="0.00162503"
+        ixy="7.3E-07"
+        ixz="-1.65E-06"
+        iyy="0.00128395"
+        iyz="-0.00056317"
+        izz="0.00067321" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/right_front wheel_Link_1.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/right_front wheel_Link_1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="right_front wheel_joint_1"
+    type="revolute">
+    <origin
+      xyz="0.23 -0.218 0.07"
+      rpy="0 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="right_front wheel_Link_1" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-2.97"
+      upper="2.97"
+      effort="0"
+      velocity="6.28" />
+  </joint>
+  <link
+    name="right_front wheel_Link_2">
+    <inertial>
+      <origin
+        xyz="2.4502E-06 -1.1071E-05 -0.00050816"
+        rpy="0 0 0" />
+      <mass
+        value="1.2504" />
+      <inertia
+        ixx="0.00253623"
+        ixy="-1E-08"
+        ixz="-2E-08"
+        iyy="0.00253644"
+        iyz="-4.3E-07"
+        izz="0.00383541" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/right_front wheel_Link_2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.890196078431372 0.890196078431372 0.913725490196078 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/right_front wheel_Link_2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="right_front wheel_joint_2"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="-1.5708 0 0" />
+    <parent
+      link="right_front wheel_Link_1" />
+    <child
+      link="right_front wheel_Link_2" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-2.97"
+      upper="2.97"
+      effort="0"
+      velocity="6.28" />
+  </joint>
+  <link
+    name="left_back wheel_Link_1">
+    <inertial>
+      <origin
+        xyz="4.7177E-05 -0.024805 0.07456"
+        rpy="0 0 0" />
+      <mass
+        value="0.62533" />
+      <inertia
+        ixx="0.00162503"
+        ixy="7.3E-07"
+        ixz="1.66E-06"
+        iyy="0.00128395"
+        iyz="0.00056317"
+        izz="0.00067321" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/left_back wheel_Link_1.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/left_back wheel_Link_1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="left_back wheel_joint_1"
+    type="revolute">
+    <origin
+      xyz="-0.23 0.218 0.07"
+      rpy="0 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="left_back wheel_Link_1" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-2.97"
+      upper="2.97"
+      effort="0"
+      velocity="6.28" />
+  </joint>
+  <link
+    name="left_back wheel_Link_2">
+    <inertial>
+      <origin
+        xyz="-2.4502E-06 -1.1071E-05 0.00050816"
+        rpy="0 0 0" />
+      <mass
+        value="1.2504" />
+      <inertia
+        ixx="0.00253623"
+        ixy="1E-08"
+        ixz="-2E-08"
+        iyy="0.00253644"
+        iyz="4.3E-07"
+        izz="0.00383541" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/left_back wheel_Link_2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.890196078431372 0.890196078431372 0.913725490196078 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/left_back wheel_Link_2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="left_back wheel_joint_2"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="-1.5708 0 0" />
+    <parent
+      link="left_back wheel_Link_1" />
+    <child
+      link="left_back wheel_Link_2" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-2.97"
+      upper="2.97"
+      effort="0"
+      velocity="6.28" />
+  </joint>
+  <link
+    name="right_back wheel_Link_1">
+    <inertial>
+      <origin
+        xyz="-4.7177E-05 0.024805 0.07456"
+        rpy="0 0 0" />
+      <mass
+        value="0.62533" />
+      <inertia
+        ixx="0.00162503"
+        ixy="7.3E-07"
+        ixz="-1.65E-06"
+        iyy="0.00128395"
+        iyz="-0.00056317"
+        izz="0.00067321" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/right_back wheel_Link_1.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/right_back wheel_Link_1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="right_back wheel_joint_1"
+    type="revolute">
+    <origin
+      xyz="-0.23 -0.218 0.07"
+      rpy="0 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="right_back wheel_Link_1" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-2.97"
+      upper="2.97"
+      effort="0"
+      velocity="6.28" />
+  </joint>
+  <link
+    name="right_back wheel_Link_2">
+    <inertial>
+      <origin
+        xyz="2.4502E-06 -1.1071E-05 -0.00050816"
+        rpy="0 0 0" />
+      <mass
+        value="1.2504" />
+      <inertia
+        ixx="0.00253623"
+        ixy="-1E-08"
+        ixz="-2E-08"
+        iyy="0.00253644"
+        iyz="-4.3E-07"
+        izz="0.00383541" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/right_back wheel_Link_2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.8902 0.8902 0.91373 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/right_back wheel_Link_2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="right_back wheel_joint_2"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="-1.5708 0 0" />
+    <parent
+      link="right_back wheel_Link_1" />
+    <child
+      link="right_back wheel_Link_2" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-2.97"
+      upper="2.97"
+      effort="0"
+      velocity="6.28" />
+  </joint>
+  <link
+    name="waist_Link_1_prismatic">
+    <inertial>
+      <origin
+        xyz="-0.043051 -0.00099026 -0.0031441"
+        rpy="0 0 0" />
+      <mass
+        value="6.0547" />
+      <inertia
+        ixx="0.013887"
+        ixy="0.00025825"
+        ixz="-0.0014717"
+        iyy="0.041848"
+        iyz="1.8808E-05"
+        izz="0.03664" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/waist_Link_1_prismatic.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.898039215686275 0.917647058823529 0.929411764705882 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/waist_Link_1_prismatic.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="waist_jiont_1_prismatic"
+    type="fixed">
+    <origin
+      xyz="0.18048 0 0.36213"
+      rpy="0 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="waist_Link_1_prismatic" />
+    <axis
+      xyz="0 0 0" />
+    <limit
+      lower="0"
+      upper="0.86"
+      effort="0"
+      velocity="0.2" />
+  </joint>
+  <link
+    name="waist_Link_2">
+    <inertial>
+      <origin
+        xyz="0.0026414 0.02235 -0.0012175"
+        rpy="0 0 0" />
+      <mass
+        value="5.3538" />
+      <inertia
+        ixx="0.04609582"
+        ixy="0.00043467"
+        ixz="1.785E-05"
+        iyy="0.04430159"
+        iyz="0.00014534"
+        izz="0.02076499" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/waist_Link_2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/waist_Link_2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="waist_joint_2"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="1.5708 0 0" />
+    <parent
+      link="waist_Link_1_prismatic" />
+    <child
+      link="waist_Link_2" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-1.5708"
+      upper="0"
+      effort="194"
+      velocity="3.14" />
+  </joint>
+  <link
+    name="waist_Link_3">
+    <inertial>
+      <origin
+        xyz="0.0041391 9.144E-05 0.34664435"
+        rpy="0 0 0" />
+      <mass
+        value="17.4767" />
+      <inertia
+        ixx="0.36345315"
+        ixy="-0.00022069"
+        ixz="0.00340584"
+        iyy="0.33755628"
+        iyz="-0.00018698"
+        izz="0.16205022" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/waist_Link_3.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/waist_Link_3.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="waist_joint_3"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="-1.5708 0 0" />
+    <parent
+      link="waist_Link_2" />
+    <child
+      link="waist_Link_3" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-0.4363"
+      upper="0.4363"
+      effort="194"
+      velocity="3.14" />
+  </joint>
+  <link
+    name="arm right_Link_1">
+    <inertial>
+      <origin
+        xyz="1.15E-06 -0.0016087 -0.027255"
+        rpy="0 0 0" />
+      <mass
+        value="2.25" />
+      <inertia
+        ixx="0.0052802"
+        ixy="-1.1E-07"
+        ixz="0"
+        iyy="0.0061121"
+        iyz="-9.865E-05"
+        izz="0.002573" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm right_Link_1.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm right_Link_1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="arm right_joint_1"
+    type="revolute">
+    <origin
+      xyz="0 -0.2305 0.4335"
+      rpy="1.5708 0 0" />
+    <parent
+      link="waist_Link_3" />
+    <child
+      link="arm right_Link_1" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.1067"
+      upper="3.1067"
+      effort="108"
+      velocity="3.14" />
+  </joint>
+  <link
+    name="arm right_Link_2">
+    <inertial>
+      <origin
+        xyz="1.34E-06 0.046956 -0.001486"
+        rpy="0 0 0" />
+      <mass
+        value="1.85" />
+      <inertia
+        ixx="0.0087872"
+        ixy="-7E-08"
+        ixz="1E-07"
+        iyy="0.0038695"
+        iyz="0.00012909"
+        izz="0.0073" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm right_Link_2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm right_Link_2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="arm right_joint_2"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="1.5708 0 0" />
+    <parent
+      link="arm right_Link_1" />
+    <child
+      link="arm right_Link_2" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-2.0944"
+      upper="2.0944"
+      effort="108"
+      velocity="3.14" />
+  </joint>
+  <link
+    name="arm right_Link_3">
+    <inertial>
+      <origin
+        xyz="0.0058493 0.00090247 -0.05684"
+        rpy="0 0 0" />
+      <mass
+        value="1.75" />
+      <inertia
+        ixx="0.0057967"
+        ixy="1.918E-05"
+        ixz="0.00066746"
+        iyy="0.0062724"
+        iyz="8.977E-05"
+        izz="0.0018218" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm right_Link_3.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm right_Link_3.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="arm right_joint_3"
+    type="revolute">
+    <origin
+      xyz="0 0.287 0"
+      rpy="-1.5708 0 0" />
+    <parent
+      link="arm right_Link_2" />
+    <child
+      link="arm right_Link_3" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.1067"
+      upper="3.1067"
+      effort="40"
+      velocity="3.14" />
+  </joint>
+  <link
+    name="arm right_Link_4">
+    <inertial>
+      <origin
+        xyz="-0.0076264 0.036752 0.0015397"
+        rpy="0 0 0" />
+      <mass
+        value="1.35" />
+      <inertia
+        ixx="0.0045995"
+        ixy="-0.00047302"
+        ixz="1.59E-05"
+        iyy="0.002472"
+        iyz="-7.646E-05"
+        izz="0.0037317" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm right_Link_4.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm right_Link_4.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="arm right_joint_4"
+    type="revolute">
+    <origin
+      xyz="0.018 0 0"
+      rpy="1.5708 0 0" />
+    <parent
+      link="arm right_Link_3" />
+    <child
+      link="arm right_Link_4" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-2.5307"
+      upper="1.0472"
+      effort="40"
+      velocity="3.14" />
+  </joint>
+  <link
+    name="arm right_Link_5">
+    <inertial>
+      <origin
+        xyz="-8.8273E-07 0.00089019 -0.11388"
+        rpy="0 0 0" />
+      <mass
+        value="1.45" />
+      <inertia
+        ixx="0.00440269"
+        ixy="0"
+        ixz="-1.2E-07"
+        iyy="0.00378792"
+        iyz="0.00013132"
+        izz="0.00200876" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm right_Link_5.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm right_Link_5.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="arm right_joint_5"
+    type="revolute">
+    <origin
+      xyz="-0.018 0.314 0"
+      rpy="-1.5708 0 0" />
+    <parent
+      link="arm right_Link_4" />
+    <child
+      link="arm right_Link_5" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.1067"
+      upper="3.1067"
+      effort="22"
+      velocity="3.14" />
+  </joint>
+  <link
+    name="arm right_Link_6">
+    <inertial>
+      <origin
+        xyz="-0.0040618 1.2472E-07 -3.7325E-08"
+        rpy="0 0 0" />
+      <mass
+        value="1.1" />
+      <inertia
+        ixx="0.0008362"
+        ixy="0"
+        ixz="0"
+        iyy="0.00077682"
+        iyz="0"
+        izz="0.00072561" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm right_Link_6.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm right_Link_6.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="arm right_joint_6"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="1.5708 0 0" />
+    <parent
+      link="arm right_Link_5" />
+    <child
+      link="arm right_Link_6" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-1.0472"
+      upper="1.0472"
+      effort="22"
+      velocity="3.14" />
+  </joint>
+  <link
+    name="arm right_Link_7">
+    <inertial>
+      <origin
+        xyz="0.037261 -2.2392E-05 0.0051669"
+        rpy="0 0 0" />
+      <mass
+        value="0.34882" />
+      <inertia
+        ixx="0.00047214"
+        ixy="-7.0446E-07"
+        ixz="6.3325E-05"
+        iyy="0.00090209"
+        iyz="6.935E-08"
+        izz="0.00066079" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm right_Link_7.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm right_Link_7.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="arm right_joint_7"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="1.5708 0 1.5708" />
+    <parent
+      link="arm right_Link_6" />
+    <child
+      link="arm right_Link_7" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-1.5708"
+      upper="1.5708"
+      effort="22"
+      velocity="3.14" />
+  </joint>
+  <link
+    name="arm left_Link_1">
+    <inertial>
+      <origin
+        xyz="1.15E-06 -0.00160874 -0.02725458"
+        rpy="0 0 0" />
+      <mass
+        value="2.25" />
+      <inertia
+        ixx="0.00528015"
+        ixy="-1.1E-07"
+        ixz="0"
+        iyy="0.00611211"
+        iyz="-9.865E-05"
+        izz="0.00611486" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm left_Link_1.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm left_Link_1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="arm left_joint_1"
+    type="revolute">
+    <origin
+      xyz="0 0.2305 0.4335"
+      rpy="-1.5708 0 0" />
+    <parent
+      link="waist_Link_3" />
+    <child
+      link="arm left_Link_1" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.1067"
+      upper="3.1067"
+      effort="108"
+      velocity="3.14" />
+  </joint>
+  <link
+    name="arm left_Link_2">
+    <inertial>
+      <origin
+        xyz="1.34E-06 0.04695591 -0.00148599"
+        rpy="0 0 0" />
+      <mass
+        value="1.85" />
+      <inertia
+        ixx="0.00878723"
+        ixy="-7E-08"
+        ixz="1E-07"
+        iyy="0.00386948"
+        iyz="0.00012909"
+        izz="0.0073004" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm left_Link_2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm left_Link_2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="arm left_joint_2"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="1.5708 0 0" />
+    <parent
+      link="arm left_Link_1" />
+    <child
+      link="arm left_Link_2" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-2.0944"
+      upper="2.0944"
+      effort="108"
+      velocity="3.14" />
+  </joint>
+  <link
+    name="arm left_Link_3">
+    <inertial>
+      <origin
+        xyz="0.0058492 0.00090406 -0.05684"
+        rpy="0 0 0" />
+      <mass
+        value="1.75" />
+      <inertia
+        ixx="0.00579666"
+        ixy="1.918E-05"
+        ixz="0.00066746"
+        iyy="0.00627241"
+        iyz="8.977E-05"
+        izz="0.00182175" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm left_Link_3.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm left_Link_3.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="arm left_joint_3"
+    type="revolute">
+    <origin
+      xyz="0 0.287 0"
+      rpy="-1.5708 0 0" />
+    <parent
+      link="arm left_Link_2" />
+    <child
+      link="arm left_Link_3" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.1067"
+      upper="3.1067"
+      effort="40"
+      velocity="3.14" />
+  </joint>
+  <link
+    name="arm left_Link_4">
+    <inertial>
+      <origin
+        xyz="-0.0076264 0.036752 0.0015397"
+        rpy="0 0 0" />
+      <mass
+        value="1.35" />
+      <inertia
+        ixx="0.0049951"
+        ixy="-0.00047302"
+        ixz="1.59E-05"
+        iyy="0.00247199"
+        iyz="-7.646E-05"
+        izz="0.00373168" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm left_Link_4.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm left_Link_4.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="arm left_joint_4"
+    type="revolute">
+    <origin
+      xyz="0.018 0 0"
+      rpy="1.5708 0 0" />
+    <parent
+      link="arm left_Link_3" />
+    <child
+      link="arm left_Link_4" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-2.5307"
+      upper="1.0472"
+      effort="40"
+      velocity="3.14" />
+  </joint>
+  <link
+    name="arm left_Link_5">
+    <inertial>
+      <origin
+        xyz="0 -0.00088914 -0.11387776"
+        rpy="0 0 0" />
+      <mass
+        value="1.45" />
+      <inertia
+        ixx="0.00440266"
+        ixy="6E-08"
+        ixz="-1.2E-07"
+        iyy="0.00378789"
+        iyz="-0.00013134"
+        izz="0.00200877" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm left_Link_5.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm left_Link_5.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="arm left_joint_5"
+    type="revolute">
+    <origin
+      xyz="-0.0180000000000008 0.314 0"
+      rpy="-1.5707963267949 0 0" />
+    <parent
+      link="arm left_Link_4" />
+    <child
+      link="arm left_Link_5" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.1067"
+      upper="3.1067"
+      effort="22"
+      velocity="3.14" />
+  </joint>
+  <link
+    name="arm left_Link_6">
+    <inertial>
+      <origin
+        xyz="-0.0040618 0 0"
+        rpy="0 0 0" />
+      <mass
+        value="1.1" />
+      <inertia
+        ixx="0.0008362"
+        ixy="0"
+        ixz="0"
+        iyy="0.00077682"
+        iyz="0"
+        izz="0.00072561" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm left_Link_6.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm left_Link_6.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="arm left_joint_6"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="1.5708 0 0" />
+    <parent
+      link="arm left_Link_5" />
+    <child
+      link="arm left_Link_6" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-1.0472"
+      upper="1.0472"
+      effort="22"
+      velocity="3.14" />
+  </joint>
+  <link
+    name="arm left_Link_7">
+    <inertial>
+      <origin
+        xyz="0.037174 2.6667E-05 0.0052611"
+        rpy="0 0 0" />
+      <mass
+        value="0.34794" />
+      <inertia
+        ixx="0.00046781"
+        ixy="-3.988E-08"
+        ixz="3.166E-05"
+        iyy="0.00062816"
+        iyz="-1.8349E-08"
+        izz="0.00039057" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm left_Link_7.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/arm left_Link_7.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="arm left_joint_7"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="1.5708 0 1.5708" />
+    <parent
+      link="arm left_Link_6" />
+    <child
+      link="arm left_Link_7" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-1.5708"
+      upper="1.5708"
+      effort="22"
+      velocity="3.14" />
+  </joint>
+  <link
+    name="head_Link_1">
+    <inertial>
+      <origin
+        xyz="-0.00036181 -0.012522 -0.017538"
+        rpy="0 0 0" />
+      <mass
+        value="1.3932" />
+      <inertia
+        ixx="0.0032973"
+        ixy="6.6693E-06"
+        ixz="-4.9573E-05"
+        iyy="0.003207"
+        iyz="0.00030602"
+        izz="0.0016203" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/head_Link_1.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.89804 0.91765 0.92941 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/head_Link_1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="head_joint_1"
+    type="revolute">
+    <origin
+      xyz="-0.0135 0 0.648"
+      rpy="0 0 0" />
+    <parent
+      link="waist_Link_3" />
+    <child
+      link="head_Link_1" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-1.5708"
+      upper="1.5708"
+      effort="22"
+      velocity="3.14" />
+  </joint>
+  <link
+    name="head_Link_2">
+    <inertial>
+      <origin
+        xyz="0.05658 0.029152 -0.018873"
+        rpy="0 0 0" />
+      <mass
+        value="1.0577" />
+      <inertia
+        ixx="0.00480604"
+        ixy="0.0009986"
+        ixz="0.00088202"
+        iyy="0.00414727"
+        iyz="0.00057025"
+        izz="0.0053477" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/head_Link_2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="1 1 1 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://00_轮式升降机器人Marvin Max - 3/meshes/head_Link_2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="head_joint_2"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="1.5708 0 0" />
+    <parent
+      link="head_Link_1" />
+    <child
+      link="head_Link_2" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-0.6109"
+      upper="0.4363"
+      effort="22"
+      velocity="3.14" />
+  </joint>
+</robot>

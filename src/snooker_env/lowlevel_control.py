@@ -7,13 +7,24 @@ from dataclasses import dataclass
 import mujoco
 import numpy as np
 
-from snooker_env.pipeline_low_level import LIFT_ARM_JOINTS
+from snooker_env.pipeline_low_level import GENTO_ARM_JOINTS, LIFT_ARM_JOINTS
 from snooker_env.pipeline_types import CueCommand, JointAction, Pose3D
 
 
 GRIP_SITE_PAIRS: tuple[tuple[str, str], ...] = (
     ("lift_left_gripper_tcp", "cue_left_grip_site"),
     ("lift_right_gripper_tcp", "cue_right_grip_site"),
+)
+
+BRIDGE_STROKE_SITE_PAIRS: tuple[tuple[str, str], ...] = (
+    ("lift_left_gripper_tcp", "cue_bridge_site"),
+    ("lift_right_gripper_tcp", "cue_right_grip_site"),
+)
+
+GENTO_BRIDGE_STROKE_SITE_PAIRS: tuple[tuple[str, str], ...] = (
+    # Robot-right fixes the forward cue line; robot-left drives the stroke.
+    ("gento_right_gripper_tcp", "cue_left_grip_site"),
+    ("gento_left_gripper_tcp", "cue_right_grip_site"),
 )
 
 
@@ -113,6 +124,7 @@ class DualArmDifferentialIKController:
         model: mujoco.MjModel,
         joint_names: tuple[str, ...] = LIFT_ARM_JOINTS,
         *,
+        site_pairs: tuple[tuple[str, str], ...] = GRIP_SITE_PAIRS,
         damping: float = 0.08,
         gain: float = 0.7,
         max_joint_step: float = 0.04,
@@ -132,12 +144,15 @@ class DualArmDifferentialIKController:
         ]
         self.qpos_ids = np.asarray([int(model.jnt_qposadr[idx]) for idx in joint_ids], dtype=int)
         self.dof_ids = np.asarray([int(model.jnt_dofadr[idx]) for idx in joint_ids], dtype=int)
+        self.site_pairs = tuple(site_pairs)
+        if len(self.site_pairs) != 2:
+            raise ValueError("Dual-arm IK requires exactly two TCP/cue-site pairs.")
         self.tcp_site_ids = np.asarray(
-            [_named_id(model, mujoco.mjtObj.mjOBJ_SITE, pair[0]) for pair in GRIP_SITE_PAIRS],
+            [_named_id(model, mujoco.mjtObj.mjOBJ_SITE, pair[0]) for pair in self.site_pairs],
             dtype=int,
         )
         self.cue_grip_site_ids = np.asarray(
-            [_named_id(model, mujoco.mjtObj.mjOBJ_SITE, pair[1]) for pair in GRIP_SITE_PAIRS],
+            [_named_id(model, mujoco.mjtObj.mjOBJ_SITE, pair[1]) for pair in self.site_pairs],
             dtype=int,
         )
         self.cue_body_id = _named_id(model, mujoco.mjtObj.mjOBJ_BODY, "cue_body")
@@ -250,4 +265,159 @@ class DualArmDifferentialIKController:
             position_targets=targets,
             velocity_targets=velocity_targets,
             torque_targets=zeros.copy(),
+        )
+
+
+class BridgeStrokeDifferentialIKController(DualArmDifferentialIKController):
+    """Keep the forward guide fixed while only the rear hand strokes."""
+
+    def __init__(
+        self,
+        model: mujoco.MjModel,
+        joint_names: tuple[str, ...] = LIFT_ARM_JOINTS,
+        *,
+        site_pairs: tuple[tuple[str, str], ...] = BRIDGE_STROKE_SITE_PAIRS,
+        **kwargs: float,
+    ) -> None:
+        if len(site_pairs) != 2:
+            raise ValueError("Bridge-stroke IK requires support and push site pairs.")
+        super().__init__(model, joint_names, site_pairs=site_pairs, **kwargs)
+        self.bridge_tcp_site_id = _named_id(
+            model, mujoco.mjtObj.mjOBJ_SITE, site_pairs[0][0]
+        )
+        self.push_tcp_site_id = _named_id(
+            model, mujoco.mjtObj.mjOBJ_SITE, site_pairs[1][0]
+        )
+        self.push_cue_site_id = _named_id(
+            model, mujoco.mjtObj.mjOBJ_SITE, site_pairs[1][1]
+        )
+        self._bridge_anchor_position: np.ndarray | None = None
+        self._bridge_anchor_rotation: np.ndarray | None = None
+        self._push_orientation_in_cue: np.ndarray | None = None
+
+    @property
+    def bridge_anchor_position(self) -> np.ndarray:
+        if self._bridge_anchor_position is None:
+            raise RuntimeError("Call reset_reference() before reading the bridge anchor.")
+        return self._bridge_anchor_position.copy()
+
+    def reset_reference(self, data: mujoco.MjData) -> None:
+        """Capture the stationary support pose and rear-hand cue orientation."""
+
+        mujoco.mj_forward(self.model, data)
+        cue_rotation = data.xmat[self.cue_body_id].reshape(3, 3).copy()
+        self._bridge_anchor_position = data.site_xpos[self.bridge_tcp_site_id].copy()
+        self._bridge_anchor_rotation = (
+            data.site_xmat[self.bridge_tcp_site_id].reshape(3, 3).copy()
+        )
+        self._push_orientation_in_cue = (
+            cue_rotation.T @ data.site_xmat[self.push_tcp_site_id].reshape(3, 3)
+        )
+
+    def _task(self, data: mujoco.MjData, pose: Pose3D) -> tuple[np.ndarray, np.ndarray]:
+        if (
+            self._bridge_anchor_position is None
+            or self._bridge_anchor_rotation is None
+            or self._push_orientation_in_cue is None
+        ):
+            self.reset_reference(data)
+        assert self._bridge_anchor_position is not None
+        assert self._bridge_anchor_rotation is not None
+        assert self._push_orientation_in_cue is not None
+
+        cue_rotation = quat_to_matrix(pose.quat_wxyz)
+        push_offset = cue_rotation @ self.model.site_pos[self.push_cue_site_id]
+        targets = (
+            (
+                self.bridge_tcp_site_id,
+                self._bridge_anchor_position,
+                self._bridge_anchor_rotation,
+            ),
+            (
+                self.push_tcp_site_id,
+                np.asarray(pose.position, dtype=np.float64) + push_offset,
+                cue_rotation @ self._push_orientation_in_cue,
+            ),
+        )
+
+        errors: list[np.ndarray] = []
+        jacobians: list[np.ndarray] = []
+        position_norms: list[float] = []
+        orientation_norms: list[float] = []
+        for tcp_site_id, target_position, target_rotation in targets:
+            position_delta = target_position - data.site_xpos[tcp_site_id]
+            current_rotation = data.site_xmat[tcp_site_id].reshape(3, 3)
+            orientation_delta = rotation_error(target_rotation, current_rotation)
+            jac_position = np.zeros((3, self.model.nv), dtype=np.float64)
+            jac_rotation = np.zeros((3, self.model.nv), dtype=np.float64)
+            mujoco.mj_jacSite(
+                self.model,
+                data,
+                jac_position,
+                jac_rotation,
+                int(tcp_site_id),
+            )
+            errors.extend((position_delta, self.orientation_weight * orientation_delta))
+            jacobians.extend(
+                (
+                    jac_position[:, self.dof_ids],
+                    self.orientation_weight * jac_rotation[:, self.dof_ids],
+                )
+            )
+            position_norms.append(float(np.linalg.norm(position_delta)))
+            orientation_norms.append(float(np.linalg.norm(orientation_delta)))
+
+        self.last_diagnostics = TrackingDiagnostics(
+            position_error=max(position_norms),
+            orientation_error=max(orientation_norms),
+        )
+        return np.concatenate(errors), np.vstack(jacobians)
+
+    def _task_twist(self, command: CueCommand) -> np.ndarray:
+        """Apply cue feed-forward twist to the rear hand only."""
+
+        linear = np.asarray(command.linear_velocity, dtype=np.float64)
+        angular = np.asarray(command.angular_velocity, dtype=np.float64)
+        if linear.shape != (3,) or angular.shape != (3,):
+            raise ValueError("Cue linear and angular velocities must both have shape (3,).")
+        if not np.all(np.isfinite(linear)) or not np.all(np.isfinite(angular)):
+            raise ValueError("Cue linear and angular velocities must be finite.")
+        cue_rotation = quat_to_matrix(command.pose.quat_wxyz)
+        push_offset = cue_rotation @ self.model.site_pos[self.push_cue_site_id]
+        push_linear = linear + np.cross(angular, push_offset)
+        return np.concatenate(
+            (
+                np.zeros(6, dtype=np.float64),
+                push_linear,
+                self.orientation_weight * angular,
+            )
+        )
+
+    def bridge_position_error(self, data: mujoco.MjData) -> float:
+        return float(
+            np.linalg.norm(
+                self.bridge_anchor_position - data.site_xpos[self.bridge_tcp_site_id]
+            )
+        )
+
+    def push_grip_error(self, data: mujoco.MjData) -> float:
+        return float(
+            np.linalg.norm(
+                data.site_xpos[self.push_tcp_site_id]
+                - data.site_xpos[self.push_cue_site_id]
+            )
+        )
+
+
+class GentoBridgeStrokeDifferentialIKController(
+    BridgeStrokeDifferentialIKController
+):
+    """Gento controller with robot-right support and robot-left speed roles."""
+
+    def __init__(self, model: mujoco.MjModel, **kwargs: float) -> None:
+        super().__init__(
+            model,
+            GENTO_ARM_JOINTS,
+            site_pairs=GENTO_BRIDGE_STROKE_SITE_PAIRS,
+            **kwargs,
         )

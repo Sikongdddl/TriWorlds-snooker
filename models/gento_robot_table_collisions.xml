@@ -1,0 +1,36 @@
+<mujoco>
+  <asset>
+    <material name="gento_table_collision_mat" rgba="0.2 0.65 1.0 0"/>
+  </asset>
+
+  <default>
+    <default class="gento_solid_table">
+      <geom type="box" group="4" material="gento_table_collision_mat"
+            contype="8" conaffinity="16" condim="4"
+            friction="0.70 0.01 0.001" solref="0.004 1"
+            solimp="0.92 0.99 0.002"/>
+    </default>
+  </default>
+
+  <worldbody>
+    <body name="gento_table_collision_root">
+      <geom name="robot_table_collision_playfield" class="gento_solid_table"
+            pos="0 0 1.000" size="0.615 1.250 0.050"/>
+
+      <!-- Solid wooden envelopes follow the source table's upper rail parts.
+           The negative-Y rail is the one crossed by the cue during a shot. -->
+      <geom name="robot_table_collision_rail_y_pos" class="gento_solid_table"
+            pos="0 1.400 1.070" size="0.655 0.090 0.020"/>
+      <geom name="robot_table_collision_rail_y_neg" class="gento_solid_table"
+            pos="0 -1.400 1.070" size="0.655 0.090 0.020"/>
+      <geom name="robot_table_collision_rail_x_neg_y_pos" class="gento_solid_table"
+            pos="-0.780 0.655 1.070" size="0.070 0.655 0.020"/>
+      <geom name="robot_table_collision_rail_x_neg_y_neg" class="gento_solid_table"
+            pos="-0.780 -0.655 1.070" size="0.070 0.655 0.020"/>
+      <geom name="robot_table_collision_rail_x_pos_y_pos" class="gento_solid_table"
+            pos="0.780 0.655 1.070" size="0.070 0.655 0.020"/>
+      <geom name="robot_table_collision_rail_x_pos_y_neg" class="gento_solid_table"
+            pos="0.780 -0.655 1.070" size="0.070 0.655 0.020"/>
+    </body>
+  </worldbody>
+</mujoco>
