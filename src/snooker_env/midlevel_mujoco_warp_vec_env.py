@@ -64,7 +64,9 @@ from snooker_env.table_geometry import (
 
 
 _NO_EVENT_STEP = 2_000_000_000
-MUJOCO_WARP_SHOT_EXECUTION_VERSION = "two-ball-mujoco-warp-v7-fixed-newton-20us"
+MUJOCO_WARP_SHOT_EXECUTION_VERSION = (
+    "two-ball-mujoco-warp-v8-deterministic-reductions-20us"
+)
 
 
 def prepare_mujoco_warp_model(model: mujoco.MjModel) -> None:
@@ -73,18 +75,15 @@ def prepare_mujoco_warp_model(model: mujoco.MjModel) -> None:
     register_mujoco_billiards_sdf(model)
     normalize_zero_friction_contact_dims(model)
     calibrate_trapezoid_sdf_contact_damping(model)
-    # Tiny changes in the order of CUDA floating-point reductions must not
-    # decide whether one world performs an extra Newton iteration.  Such a
-    # branch can be amplified by a later cushion contact even when every world
-    # is otherwise isolated.  MuJoCo defines tolerance=0 as disabling the
-    # early convergence exit, so the configured 80 iterations become fixed.
-    # Keep this backend-only: the source XML and CPU reference remain exact.
-    model.opt.tolerance = 0.0
 
 
 def _hash_python_tree(digest: Any, root: Path, label: str) -> None:
     for path in sorted(root.rglob("*.py"), key=lambda candidate: str(candidate)):
-        if "__pycache__" in path.parts:
+        if (
+            "__pycache__" in path.parts
+            or path.name.endswith("_test.py")
+            or path.name == "test_data.py"
+        ):
             continue
         digest.update(f"{label}/{path.relative_to(root)}".encode("utf-8"))
         digest.update(b"\0")
@@ -707,6 +706,28 @@ class MJWarpMidLevelVecEnv(VecEnv):
         mujoco.mj_forward(self.model, initial_data)
         with wp.ScopedDevice(self.device):
             self.warp_model = mjw.put_model(self.model)
+            device_tolerance = float(
+                self.warp_model.opt.tolerance.numpy()[0]
+            )
+            # MJWarp is float32 and intentionally floors CPU MuJoCo's much
+            # tighter float64 tolerance. Zero-tolerance fixed iteration is not
+            # safe in its incremental Newton path, so verify the calibrated
+            # positive value instead of silently assuming CPU semantics.
+            expected_device_tolerance = max(
+                float(self.model.opt.tolerance),
+                1.0e-6,
+            )
+            if not np.isclose(
+                device_tolerance,
+                expected_device_tolerance,
+                rtol=1.0e-6,
+                atol=0.0,
+            ):
+                raise RuntimeError(
+                    "MJWarp solver tolerance calibration changed during model "
+                    f"import: expected={expected_device_tolerance:.9g}, "
+                    f"device={device_tolerance:.9g}."
+                )
             self.warp_data = mjw.put_data(
                 self.model,
                 initial_data,

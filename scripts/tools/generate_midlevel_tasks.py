@@ -12,11 +12,14 @@ ROOT = add_src_to_path()
 from snooker_env.midlevel_env import DEFAULT_MIDLEVEL_MODEL  # noqa: E402
 from snooker_env.midlevel_mujoco_warp_tasks import (  # noqa: E402
     generate_mujoco_warp_task_dataset,
+    repair_mujoco_warp_task_dataset,
     validate_mujoco_warp_task_dataset,
 )
 from snooker_env.midlevel_tasks import (  # noqa: E402
     DEFAULT_TRAIN_TASKS,
     DEFAULT_VALIDATION_TASKS,
+    MUJOCO_WARP_PHYSICS_BACKEND,
+    TwoBallTaskDataset,
     generate_task_dataset,
     generate_task_dataset_parallel,
     validate_task_dataset,
@@ -41,13 +44,68 @@ def _generate(
     njmax: int,
     max_shot_time: float,
     prefilter_time: float,
+    stability_stop_tolerance: float,
     max_attempts_per_task: int,
+    canonical_reserve_per_pocket: int = 32,
+    canonical_max_rounds: int = 8,
+    resume_unvalidated: bool = False,
+    recanonicalize_backend: bool = False,
 ) -> None:
     def progress(done: int, attempts: int, task: object) -> None:
         if done == 1 or done == count or done % 50 == 0:
             print(f"{label}: accepted={done}/{count} last_attempts={attempts}", flush=True)
 
-    if backend == "mujoco-warp":
+    def status(message: str) -> None:
+        print(f"{label}: {message}", flush=True)
+
+    unvalidated_output = output.with_name(
+        f"{output.stem}.unvalidated{output.suffix}"
+    )
+    if resume_unvalidated:
+        if backend != "mujoco-warp":
+            raise ValueError("--resume-unvalidated requires --backend mujoco-warp.")
+        if not unvalidated_output.is_file():
+            raise FileNotFoundError(
+                f"No staged task library exists at {unvalidated_output}."
+            )
+        staged = TwoBallTaskDataset.load(
+            unvalidated_output,
+            simulator=simulator,
+            expected_backend=MUJOCO_WARP_PHYSICS_BACKEND,
+        )
+        if len(staged) != count:
+            raise ValueError(
+                "Staged task count does not match the requested split: "
+                f"{len(staged)} != {count}."
+            )
+        if staged.generation_seed != seed:
+            raise ValueError(
+                "Staged generation seed does not match the requested split: "
+                f"{staged.generation_seed} != {seed}."
+            )
+        print(
+            f"{label}: resuming={unvalidated_output} tasks={len(staged)}",
+            flush=True,
+        )
+        dataset = repair_mujoco_warp_task_dataset(
+            staged,
+            model_path=simulator.model_path,
+            replacement_tasks_per_pocket=canonical_reserve_per_pocket,
+            num_worlds=num_worlds,
+            device=physics_device,
+            chunk_steps=chunk_steps,
+            check_interval_steps=check_interval_steps,
+            nconmax=nconmax,
+            njmax=njmax,
+            max_time=max_shot_time,
+            prefilter_time=prefilter_time,
+            stop_tolerance=stability_stop_tolerance,
+            max_rounds=canonical_max_rounds,
+            max_attempts_per_task=max_attempts_per_task,
+            allow_backend_recanonicalization=recanonicalize_backend,
+            status=status,
+        )
+    elif backend == "mujoco-warp":
         dataset = generate_mujoco_warp_task_dataset(
             count,
             seed=seed,
@@ -60,8 +118,12 @@ def _generate(
             njmax=njmax,
             max_time=max_shot_time,
             prefilter_time=prefilter_time,
+            stability_stop_tolerance=stability_stop_tolerance,
+            canonical_reserve_per_pocket=canonical_reserve_per_pocket,
+            canonical_max_rounds=canonical_max_rounds,
             max_attempts_per_task=max_attempts_per_task,
             progress=progress,
+            status=status,
         )
     else:
         generator = (
@@ -84,9 +146,6 @@ def _generate(
     # rare task or world-slot divergence and avoids throwing away hours of GPU
     # work.  A previously validated output is not replaced until the new
     # archive passes its requested replay check.
-    unvalidated_output = output.with_name(
-        f"{output.stem}.unvalidated{output.suffix}"
-    )
     dataset.save(unvalidated_output)
     print(
         f"{label}: staged={unvalidated_output} tasks={len(dataset)} "
@@ -107,6 +166,7 @@ def _generate(
                 nconmax=nconmax,
                 njmax=njmax,
                 max_time=max_shot_time,
+                stop_tolerance=stability_stop_tolerance,
             )
         else:
             report = validate_task_dataset(
@@ -175,6 +235,47 @@ def main() -> None:
     parser.add_argument("--njmax", type=int, default=1024)
     parser.add_argument("--max-shot-time", type=float, default=8.0)
     parser.add_argument("--prefilter-time", type=float, default=1.5)
+    parser.add_argument(
+        "--stability-stop-tolerance",
+        type=float,
+        default=5e-3,
+        help=(
+            "Accept a MJWarp candidate only when its first rollout and "
+            "independent canonical replay stop within this distance (meters)."
+        ),
+    )
+    parser.add_argument(
+        "--canonical-reserve-per-pocket",
+        type=int,
+        default=32,
+        help=(
+            "Maximum stable reserve tasks generated per represented pocket; "
+            "failed final-layout slots are replaced in place from this pool."
+        ),
+    )
+    parser.add_argument(
+        "--canonical-max-rounds",
+        type=int,
+        default=8,
+        help="Maximum fixed-layout replay/replace rounds per world batch.",
+    )
+    parser.add_argument(
+        "--resume-unvalidated",
+        action="store_true",
+        help=(
+            "Repair the existing .unvalidated MJWarp library in immutable "
+            "final slots instead of regenerating the split from scratch."
+        ),
+    )
+    parser.add_argument(
+        "--recanonicalize-backend",
+        action="store_true",
+        help=(
+            "Allow an existing staged MJWarp library with an older backend "
+            "hash to undergo full fixed-slot double replay on the active "
+            "backend. Requires --resume-unvalidated."
+        ),
+    )
     parser.add_argument("--max-attempts-per-task", type=int, default=2_000)
     args = parser.parse_args()
 
@@ -182,6 +283,14 @@ def main() -> None:
         raise ValueError("--workers must be positive.")
     if args.num_worlds <= 0:
         raise ValueError("--num-worlds must be positive.")
+    if args.canonical_reserve_per_pocket <= 0:
+        raise ValueError("--canonical-reserve-per-pocket must be positive.")
+    if args.canonical_max_rounds <= 0:
+        raise ValueError("--canonical-max-rounds must be positive.")
+    if args.recanonicalize_backend and not args.resume_unvalidated:
+        raise ValueError(
+            "--recanonicalize-backend requires --resume-unvalidated."
+        )
     if args.backend == "mujoco-warp" and args.workers != 1:
         raise ValueError("--workers applies only to the CPU backend.")
     simulator = TwoBallShotSimulator(
@@ -206,7 +315,12 @@ def main() -> None:
             args.njmax,
             args.max_shot_time,
             args.prefilter_time,
+            args.stability_stop_tolerance,
             args.max_attempts_per_task,
+            args.canonical_reserve_per_pocket,
+            args.canonical_max_rounds,
+            args.resume_unvalidated,
+            args.recanonicalize_backend,
         )
     if args.split in ("both", "validation"):
         _generate(
@@ -226,7 +340,12 @@ def main() -> None:
             args.njmax,
             args.max_shot_time,
             args.prefilter_time,
+            args.stability_stop_tolerance,
             args.max_attempts_per_task,
+            args.canonical_reserve_per_pocket,
+            args.canonical_max_rounds,
+            args.resume_unvalidated,
+            args.recanonicalize_backend,
         )
 
 

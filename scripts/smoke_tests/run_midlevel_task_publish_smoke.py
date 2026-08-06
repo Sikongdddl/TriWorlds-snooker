@@ -88,6 +88,7 @@ def main() -> None:
                 1_024,
                 8.0,
                 1.5,
+                5e-3,
                 2_000,
             )
         except RuntimeError as error:
@@ -126,6 +127,7 @@ def main() -> None:
             1_024,
             8.0,
             1.5,
+            5e-3,
             2_000,
         )
         published = TwoBallTaskDataset.load(output, simulator=simulator)
