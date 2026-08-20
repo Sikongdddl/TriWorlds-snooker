@@ -38,12 +38,37 @@ def main() -> None:
     checkpoint = torch.load(args.checkpoint, map_location=args.device)
     train_args = checkpoint.get("args", {})
     checkpoint_action_dim = int(checkpoint["action_dim"])
+    ordered_landing_actions = bool(train_args.get("ordered_landing_actions", checkpoint_action_dim == 192))
+    ordered_pocket_actions = bool(train_args.get("ordered_pocket_actions", checkpoint_action_dim == 6)) or ordered_landing_actions
     include_cue_landing = not bool(train_args.get("no_cue_landing", checkpoint_action_dim == 54))
+    if ordered_landing_actions:
+        include_cue_landing = True
+    elif ordered_pocket_actions:
+        include_cue_landing = False
     env = PoolToolDQNEnv(
         random_seed=args.seed,
+        break_speed=float(train_args.get("break_speed", 10.0)),
+        randomize_break=bool(train_args.get("randomize_break", False)),
+        break_speed_range=None
+        if train_args.get("break_speed_range") is None
+        else tuple(float(value) for value in train_args["break_speed_range"]),
+        break_phi_jitter_degrees=float(train_args.get("break_phi_jitter_degrees", 0.0)),
+        ordered_pocket_actions=ordered_pocket_actions,
+        ordered_landing_actions=ordered_landing_actions,
+        reset_max_attempts=int(train_args.get("reset_max_attempts", 100)),
         include_cue_landing=include_cue_landing,
         landing_x_bins=int(train_args.get("landing_x_bins", 8)),
         landing_y_bins=int(train_args.get("landing_y_bins", 4)),
+        fast_landing_solver=not bool(train_args.get("no_fast_landing_solver", False)),
+        fast_landing_max_trials=int(train_args.get("fast_landing_max_trials", 160)),
+        prune_unreachable_landing_actions=not bool(train_args.get("no_prune_unreachable_landing_actions", False)),
+        mask_unreachable_landing_actions=bool(train_args.get("mask_unreachable_landing_actions", False)),
+        landing_mask_cache_path=None
+        if bool(train_args.get("no_landing_mask_cache", False))
+        else Path(str(train_args.get("landing_mask_cache", "outputs/pooltool/landing_mask_cache.sqlite"))),
+        next_pocket_reward=float(train_args.get("next_pocket_reward", 1.5)),
+        no_next_shot_penalty=float(train_args.get("no_next_shot_penalty", -3.0)),
+        max_position_reward=float(train_args.get("max_position_reward", 6.0)),
     )
     if env.action_dim != checkpoint_action_dim:
         raise SystemExit(
@@ -90,6 +115,8 @@ def main() -> None:
             "success": bool(info["success"]),
             "foul": bool(info["foul"]),
             "reason": str(info["reason"]),
+            "position_reward": float(info.get("position_reward", 0.0)),
+            "next_valid_pockets": info.get("next_valid_pockets"),
             "pot_success": bool(info.get("pot_success")),
             "landing_success": info.get("landing_success"),
             "actual_cue_landing_cell": info.get("cue_landing_cell"),
@@ -103,6 +130,7 @@ def main() -> None:
                 "side_spin": solution.side_spin,
                 "top_spin": solution.top_spin,
                 "elevation": solution.elevation,
+                "path_type": solution.path_type,
             },
             "candidates": (),
         }

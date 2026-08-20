@@ -21,6 +21,7 @@ EPISODE_RE = re.compile(
     r"return=(?P<return>-?\d+(?:\.\d+)?)\s+"
     r"cleared=(?P<cleared>True|False)\s+"
     r"shots=(?P<shots>\d+)\s+"
+    r"(?:initial_valid_actions=(?P<initial_valid_actions>\d+)\s+)?"
     r"epsilon=(?P<epsilon>\d+(?:\.\d+)?)\s+"
     r"replay=(?P<replay>\d+)\s+"
     r"updates=(?P<updates>\d+)\s+"

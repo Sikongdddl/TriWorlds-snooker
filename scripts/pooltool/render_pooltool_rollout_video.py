@@ -140,6 +140,7 @@ def _draw_frame(system: Any, record: dict[str, Any], shot_idx: int, shot_count: 
     table_box = (margin, margin, width - sidebar_w - margin, height - margin)
     projector = _Projector(system, table_box)
     _draw_table(draw, system, projector)
+    _draw_action_overlay(draw, system, projector, record)
 
     for ball_id, ball in sorted(system.balls.items()):
         samples = _trajectory_samples(ball, time)
@@ -156,6 +157,42 @@ def _draw_frame(system: Any, record: dict[str, Any], shot_idx: int, shot_count: 
 
     _draw_sidebar(draw, record, system, shot_idx, shot_count, time, width, height, sidebar_w, fonts)
     return image
+
+
+def _draw_action_overlay(
+    draw: ImageDraw.ImageDraw,
+    system: Any,
+    projector: _Projector,
+    record: dict[str, Any],
+) -> None:
+    ball_id = str(record.get("target_ball_id", "-"))
+    pocket_id = str(record.get("target_pocket_id", "-"))
+    if ball_id not in system.balls or pocket_id not in system.table.pockets:
+        return
+    ball_pos, _state = _ball_at(system.balls[ball_id], 0.0)
+    if ball_pos is None:
+        return
+    ball_xy = projector.xy(ball_pos[:2])
+    pocket_xy = projector.xy(system.table.pockets[pocket_id].center[:2])
+    color = "#56a7ff" if record.get("player") == 0 else "#ffbd55"
+    draw.line((ball_xy, pocket_xy), fill=color, width=3)
+    ball_ring = max(12, int(round(projector.ball_radius * 1.45)))
+    draw.ellipse(
+        (ball_xy[0] - ball_ring, ball_xy[1] - ball_ring, ball_xy[0] + ball_ring, ball_xy[1] + ball_ring),
+        outline=color,
+        width=3,
+    )
+    pocket_ring = max(15, int(round(projector.ball_radius * 1.8)))
+    draw.ellipse(
+        (
+            pocket_xy[0] - pocket_ring,
+            pocket_xy[1] - pocket_ring,
+            pocket_xy[0] + pocket_ring,
+            pocket_xy[1] + pocket_ring,
+        ),
+        outline=color,
+        width=3,
+    )
 
 
 def _draw_table(draw: ImageDraw.ImageDraw, system: Any, projector: _Projector) -> None:
@@ -211,7 +248,12 @@ def _draw_sidebar(
 ) -> None:
     x0 = width - sidebar_w + 18
     y = 34
-    draw.text((x0, y), "PoolTool planner rollout", fill="#17211b", font=fonts["title"])
+    draw.text(
+        (x0, y),
+        str(record.get("rollout_title", "PoolTool planner rollout")),
+        fill="#17211b",
+        font=fonts["title"],
+    )
     y += 38
     draw.text((x0, y), f"{record.get('label', f'shot {shot_idx}')}   {shot_idx + 1}/{shot_count}", fill="#33443a", font=fonts["body"])
     y += 28
@@ -220,9 +262,12 @@ def _draw_sidebar(
 
     solution = record.get("solution") or {}
     lines = [
+        ("player", str(record.get("player", "-"))),
+        ("scores", str(record.get("player_scores", "-"))),
         ("target", f"{record.get('target_ball_id', '-')}/{record.get('target_pocket_id', '-')}"),
         ("success", str(record.get("success", "-"))),
         ("foul", str(record.get("foul", "-"))),
+        ("switch", str(record.get("switch_turn", "-"))),
         ("score", _fmt(record.get("score"))),
         ("reason", str(record.get("reason", "-"))),
         ("V0", _fmt(solution.get("speed"))),

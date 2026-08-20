@@ -16,6 +16,8 @@ Implemented:
 - Robot-free mid-level training scene for cue/ball physics experiments.
 - A 12-D residual joint-position Gymnasium environment with differential-IK nominal control.
 - High/mid/low policy interface scaffold.
+- A PoolTool-based nine-ball high-level environment aligned to the MuJoCo table convention.
+- A two-player, six-action DQN baseline with turn-taking and frozen-opponent self-play cloning.
 - Smoke tests for model loading, cue/ball contacts, spin response, and policy interfaces.
 - Render scripts for table, cue stroke, robot scaffold, and spin-response comparison videos.
 
@@ -146,9 +148,11 @@ All physics quantities use SI units:
 
 World frame:
 
-- `+X`: table long direction.
-- `+Y`: table short direction.
+- `+X`: table short direction.
+- `+Y`: table long direction.
 - `+Z`: up.
+- Table center is near the world origin.
+- The current American pool table play area is `1.27 m x 2.54 m`, so the playable plane spans approximately `X=[-0.635, 0.635]` and `Y=[-1.27, 1.27]`.
 
 Cue frame:
 
@@ -228,6 +232,16 @@ These stages are internal to each semantic skill. High-level policy still calls 
 ## PoolTool Reference Environment
 
 PoolTool is an event-based billiards simulator with a higher-fidelity billiards rules/physics stack than the current MuJoCo scaffold. It is useful as a reference environment for high-level shot planning before connecting strategy to robot execution.
+
+The local high-level wrapper does not use PoolTool's default 7-foot table. `PoolToolSinglePlayerEnv` builds a custom 9-foot American pool table aligned to the MuJoCo/mid-level convention:
+
+- Play area: `1.27 m x 2.54 m`.
+- PoolTool internal frame: corner origin, short side along `x`, long side along `y`.
+- Project world frame: centered origin, short side along `X`, long side along `Y`, cloth at `Z=1.05 m`.
+- Pocket centers in world coordinates: corners `(+/-0.675, +/-1.310) m`, middles `(+/-0.717426, 0) m`.
+- Ball radius/mass: `0.0285 m`, `0.165 kg`; resting center height is `1.0785 m`.
+
+Use `PoolToolSinglePlayerEnv.pool_to_world_xy()` and `world_to_pool_xy()` when moving data between PoolTool simulation and the rest of the project. `PoolToolDQNEnv.encode_state()` already emits ball positions in centered world meters.
 
 Install it as an optional dependency:
 
@@ -333,6 +347,8 @@ The optional `cue_landing_cell` is a regular table-plane grid cell for the final
 9 balls * 6 pockets * 32 cue landing cells = 1728 actions
 ```
 
+This is the full network output space. During training, `PoolToolDQNEnv` keeps the landing-cell action space open by default. It still samples feasible cue parameters for each direct-pot `(ball, pocket)` pair and stores the reached cue-ball landing cells in a local SQLite cache keyed by the grid-discretized table state plus the target ball/pocket and solver-grid settings. If the policy selects a landing cell that is not in the cached reachable set, the environment gives a negative reward. Use `--mask-unreachable-landing-actions` only for ablation runs that should hard-mask those landing cells during exploration.
+
 Internally, `PoolToolSinglePlayerEnv` searches for cue parameters that can realize the requested action, simulates them in PoolTool, and returns whether the target ball entered the requested pocket and, when requested, whether the cue ball stopped in the requested landing cell. The search currently samples speed, small aim offsets, side spin, and top/bottom spin around direct-pot ghost-ball geometry. If no sampled cue command solves a requested `(ball, pocket, cue_landing_cell)` action, the DQN environment treats the action as unsolved and gives a negative reward.
 
 `HeuristicClearancePlanner` still ranks simple `(ball, pocket)` actions with depth-limited lookahead. Precise multi-rail position play, combinations, safeties, and full professional shot solving are not implemented yet.
@@ -345,7 +361,20 @@ Train the DQN position-play action space:
 python scripts/pooltool/train_dqn_high_level.py \
   --episodes 10000 \
   --break-speed 10 \
+  --randomize-break \
+  --break-speed-range 8 12 \
+  --break-phi-jitter-degrees 2 \
   --device cuda
+```
+
+Precompute the opening-state landing mask table from randomized breaks:
+
+```bash
+python scripts/pooltool/precompute_landing_masks.py \
+  --samples 1000 \
+  --break-speed-range 8 12 \
+  --break-phi-jitter-degrees 2 \
+  --cache outputs/pooltool/landing_mask_cache.sqlite
 ```
 
 Use the old 54-action ball/pocket space for compatibility:
@@ -353,6 +382,108 @@ Use the old 54-action ball/pocket space for compatibility:
 ```bash
 python scripts/pooltool/train_dqn_high_level.py --no-cue-landing
 ```
+
+### Two-Player High-Level DQN
+
+The current two-player task uses ordered nine-ball targeting. The environment determines the lowest legal object ball, while each policy chooses one of the six pockets:
+
+```text
+observation = cue-ball XY + nine object-ball XY/pocketed states
+action      = pocket_id in {lb, lc, lt, rb, rc, rt}
+```
+
+The action space deliberately has no geometric potability mask. All six pockets remain visible to the policy, so learning which pocket is appropriate is part of the high-level task rather than information leaked by the environment.
+
+Every selected pocket produces a physical table transition:
+
+- If the direct-pot solver finds a valid shot, PoolTool executes that solution.
+- If no clear pot path exists, the environment executes a `best_effort_direct` shot along the requested pocket's raw ghost-ball line.
+- A pot keeps the current player at the table.
+- A miss or foul switches players, preserving the physical final positions of the cue ball and object balls.
+- A cue-ball scratch is restored using a deterministic ball-in-hand placement before the next player acts.
+- The rack ends when all legal object balls are pocketed or `--max-turns` is reached.
+
+This best-effort transition is important: an infeasible pocket choice is not a no-op and does not simply discard the turn. The acting player still strikes the cue ball, and the opponent continues from the resulting table state.
+
+Reproduce the 10,000-episode corrected experiment:
+
+```bash
+python scripts/pooltool/train_two_player_dqn_high_level.py \
+  --episodes 10000 \
+  --max-turns 60 \
+  --learning-starts 1000 \
+  --batch-size 64 \
+  --buffer-size 50000 \
+  --lr 3e-4 \
+  --train-reward-scale 0.1 \
+  --train-reward-clip 20 \
+  --self-play-clone \
+  --clone-window 100 \
+  --clone-min-episodes 300 \
+  --clone-win-rate 0.6 \
+  --clone-reward-advantage 5.0 \
+  --initial-opponent-epsilon 1.0 \
+  --opponent-epsilon 0.05 \
+  --epsilon-decay-steps 20000 \
+  --break-speed 10 \
+  --seed 109 \
+  --device cpu \
+  --log-interval 100 \
+  --save-interval 250 \
+  --output outputs/pooltool/two_player_corrected_10000eps_seed109.json \
+  --checkpoint outputs/pooltool/two_player_corrected_10000eps_seed109.pt
+```
+
+With `--self-play-clone`, only the active player's Q network is optimized. The opponent begins as a random six-pocket policy, is replaced by a frozen copy of the active network after the configured win-rate and reward-advantage thresholds are both met, and is periodically refreshed as the active policy improves.
+
+The seed-109 corrected run produced the following final-window diagnostics:
+
+```text
+last 1000 clear rate      0.998
+last 1000 p0 win rate     0.507
+last 1000 p1 win rate     0.491
+last 1000 mean turns      11.20
+final active updates      79346
+valid action count        always 6
+```
+
+The training log records each shot's path type, cue-ball displacement, foul, pot/miss reason, player switch, action count, epsilon, and scores. This makes it possible to detect accidental no-op transitions or action-mask leakage.
+
+Plot a completed run:
+
+```bash
+python scripts/pooltool/plot_two_player_dqn_training.py \
+  --input outputs/pooltool/two_player_corrected_10000eps_seed109.json \
+  --output outputs/pooltool/two_player_corrected_10000eps_seed109_curves.png \
+  --window 200 \
+  --title "Corrected Two-player DQN, seed=109"
+```
+
+Evaluate both saved policies and write a renderable PoolTool rollout:
+
+```bash
+python scripts/pooltool/evaluate_two_player_dqn_high_level.py \
+  --checkpoint outputs/pooltool/two_player_corrected_10000eps_seed109.pt \
+  --seed 109 \
+  --max-turns 60 \
+  --epsilon 0.05 \
+  --output outputs/pooltool/two_player_corrected_10000eps_seed109_rollout.json \
+  --multisystem-output outputs/pooltool/two_player_corrected_10000eps_seed109_rollout.msgpack
+```
+
+Render the rollout as an annotated MP4:
+
+```bash
+python scripts/pooltool/render_pooltool_rollout_video.py \
+  --rollout outputs/pooltool/two_player_corrected_10000eps_seed109_rollout.msgpack \
+  --plan outputs/pooltool/two_player_corrected_10000eps_seed109_rollout.json \
+  --output outputs/pooltool/two_player_corrected_10000eps_seed109_rollout.mp4 \
+  --width 1280 \
+  --height 720 \
+  --fps 30
+```
+
+Training logs, checkpoints, plots, and videos live under `outputs/` and are intentionally ignored by git.
 
 ### Discrete Value-Iteration Baseline
 

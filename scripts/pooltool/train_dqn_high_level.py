@@ -38,10 +38,25 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--no-break-rack", action="store_true")
     parser.add_argument("--break-speed", type=float, default=10.0)
+    parser.add_argument("--randomize-break", action="store_true")
+    parser.add_argument("--break-speed-range", type=float, nargs=2, metavar=("MIN", "MAX"))
+    parser.add_argument("--break-phi-jitter-degrees", type=float, default=0.0)
+    parser.add_argument("--ordered-pocket-actions", action="store_true")
+    parser.add_argument("--ordered-landing-actions", action="store_true")
+    parser.add_argument("--reset-max-attempts", type=int, default=100)
     parser.add_argument("--no-prune-blocked-actions", action="store_true")
     parser.add_argument("--no-cue-landing", action="store_true")
+    parser.add_argument("--no-prune-unreachable-landing-actions", action="store_true")
+    parser.add_argument("--mask-unreachable-landing-actions", action="store_true")
     parser.add_argument("--landing-x-bins", type=int, default=8)
     parser.add_argument("--landing-y-bins", type=int, default=4)
+    parser.add_argument("--no-fast-landing-solver", action="store_true")
+    parser.add_argument("--fast-landing-max-trials", type=int, default=160)
+    parser.add_argument("--landing-mask-cache", type=Path, default=Path("outputs/pooltool/landing_mask_cache.sqlite"))
+    parser.add_argument("--no-landing-mask-cache", action="store_true")
+    parser.add_argument("--next-pocket-reward", type=float, default=1.5)
+    parser.add_argument("--no-next-shot-penalty", type=float, default=-3.0)
+    parser.add_argument("--max-position-reward", type=float, default=6.0)
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--log-interval", type=int, default=1)
     parser.add_argument("--eval-every", type=int, default=100)
@@ -63,10 +78,24 @@ def main() -> None:
         random_seed=args.seed,
         break_rack=not args.no_break_rack,
         break_speed=args.break_speed,
+        randomize_break=args.randomize_break,
+        break_speed_range=None if args.break_speed_range is None else tuple(args.break_speed_range),
+        break_phi_jitter_degrees=args.break_phi_jitter_degrees,
+        ordered_pocket_actions=args.ordered_pocket_actions,
+        ordered_landing_actions=args.ordered_landing_actions,
+        reset_max_attempts=args.reset_max_attempts,
         prune_blocked_actions=not args.no_prune_blocked_actions,
-        include_cue_landing=not args.no_cue_landing,
+        include_cue_landing=(not args.no_cue_landing and (args.ordered_landing_actions or not args.ordered_pocket_actions)),
         landing_x_bins=args.landing_x_bins,
         landing_y_bins=args.landing_y_bins,
+        fast_landing_solver=not args.no_fast_landing_solver,
+        fast_landing_max_trials=args.fast_landing_max_trials,
+        prune_unreachable_landing_actions=not args.no_prune_unreachable_landing_actions,
+        mask_unreachable_landing_actions=args.mask_unreachable_landing_actions,
+        landing_mask_cache_path=None if args.no_landing_mask_cache else args.landing_mask_cache,
+        next_pocket_reward=args.next_pocket_reward,
+        no_next_shot_penalty=args.no_next_shot_penalty,
+        max_position_reward=args.max_position_reward,
     )
     device = torch.device(args.device)
     q_net = QNetwork(env.state_dim, env.action_dim, hidden_dim=args.hidden_dim).to(device)
@@ -84,6 +113,7 @@ def main() -> None:
 
     for episode in range(args.episodes):
         state, mask = env.reset()
+        initial_valid_actions = sum(1 for ok in mask if ok)
         episode_return = 0.0
         cleared = False
         shots: list[dict[str, Any]] = []
@@ -115,10 +145,14 @@ def main() -> None:
                     "success": bool(info["success"]),
                     "foul": bool(info["foul"]),
                     "reason": str(info["reason"]),
+                    "position_reward": float(info.get("position_reward", 0.0)),
+                    "next_valid_pockets": info.get("next_valid_pockets"),
+                    "masked_landing": str(info["reason"]) == "masked_landing",
                     "pot_success": bool(info.get("pot_success")),
                     "landing_success": info.get("landing_success"),
                     "actual_cue_landing_cell": info.get("cue_landing_cell"),
                     "cue_landing_distance": info.get("cue_landing_distance"),
+                    "dead_position": bool(info.get("dead_position", False)),
                     "remaining_balls": tuple(info.get("remaining_balls", ())),
                 }
             )
@@ -136,6 +170,7 @@ def main() -> None:
             "replay_size": len(replay),
             "updates": updates,
             "last_loss": last_loss,
+            "initial_valid_actions": initial_valid_actions,
             "trajectory": shots,
         }
         episode_records.append(record)
@@ -173,12 +208,24 @@ def main() -> None:
                 f"return={episode_return:.3f} "
                 f"cleared={cleared} "
                 f"shots={len(shots)} "
+                f"initial_valid_actions={initial_valid_actions} "
                 f"epsilon={record['epsilon']:.3f} "
                 f"replay={len(replay)} "
                 f"updates={updates} "
                 f"loss={last_loss}",
                 flush=True,
             )
+            cache_stats = env.landing_mask_cache_stats()
+            if cache_stats is not None:
+                print(
+                    "landing_cache: "
+                    f"rows={cache_stats['rows']} "
+                    f"solution_rows={cache_stats.get('solution_rows')} "
+                    f"hits={cache_stats['hits']} "
+                    f"misses={cache_stats['misses']} "
+                    f"writes={cache_stats['writes']}",
+                    flush=True,
+                )
 
     summary = {
         "episodes": args.episodes,
@@ -236,10 +283,24 @@ def _evaluate_policy(
         random_seed=args.seed,
         break_rack=not args.no_break_rack,
         break_speed=args.break_speed,
+        randomize_break=args.randomize_break,
+        break_speed_range=None if args.break_speed_range is None else tuple(args.break_speed_range),
+        break_phi_jitter_degrees=args.break_phi_jitter_degrees,
+        ordered_pocket_actions=args.ordered_pocket_actions,
+        ordered_landing_actions=args.ordered_landing_actions,
+        reset_max_attempts=args.reset_max_attempts,
         prune_blocked_actions=not args.no_prune_blocked_actions,
-        include_cue_landing=not args.no_cue_landing,
+        include_cue_landing=(not args.no_cue_landing and (args.ordered_landing_actions or not args.ordered_pocket_actions)),
         landing_x_bins=args.landing_x_bins,
         landing_y_bins=args.landing_y_bins,
+        fast_landing_solver=not args.no_fast_landing_solver,
+        fast_landing_max_trials=args.fast_landing_max_trials,
+        prune_unreachable_landing_actions=not args.no_prune_unreachable_landing_actions,
+        mask_unreachable_landing_actions=args.mask_unreachable_landing_actions,
+        landing_mask_cache_path=None if args.no_landing_mask_cache else args.landing_mask_cache,
+        next_pocket_reward=args.next_pocket_reward,
+        no_next_shot_penalty=args.no_next_shot_penalty,
+        max_position_reward=args.max_position_reward,
     )
     returns: list[float] = []
     cleared = 0
