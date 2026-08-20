@@ -31,7 +31,16 @@ from snooker_env.midlevel_ppo import (  # noqa: E402
     require_checkpoint_manifest,
     set_independent_action_std,
 )
-from snooker_env.midlevel_ppo_env import MidLevelTwoBallPPOEnv  # noqa: E402
+from snooker_env.midlevel_ppo_env import (  # noqa: E402
+    CUE_POSITION_REWARD_DISTANCE_SCALE,
+    CUE_POSITION_REWARD_WEIGHT,
+    JOINT_SUCCESS_REWARD_BONUS,
+    MAX_TERMINAL_REWARD,
+    MIDLEVEL_REWARD_VERSION,
+    OBJECT_BALL_REWARD_WEIGHT,
+    OBJECT_POCKET_REWARD_DISTANCE_SCALE,
+    MidLevelTwoBallPPOEnv,
+)
 from snooker_env.midlevel_tasks import (  # noqa: E402
     CPU_PHYSICS_BACKEND,
     MUJOCO_WARP_PHYSICS_BACKEND,
@@ -131,6 +140,16 @@ def build_training_manifest(
             "stop_hold_time": dataset.stop_hold_time,
         },
         "environment": environment_settings,
+        "reward": {
+            "version": MIDLEVEL_REWARD_VERSION,
+            "object_pocket_distance_scale": OBJECT_POCKET_REWARD_DISTANCE_SCALE,
+            "cue_position_distance_scale": CUE_POSITION_REWARD_DISTANCE_SCALE,
+            "object_ball_weight": OBJECT_BALL_REWARD_WEIGHT,
+            "cue_position_weight": CUE_POSITION_REWARD_WEIGHT,
+            "joint_success_bonus": JOINT_SUCCESS_REWARD_BONUS,
+            "maximum_terminal_reward": MAX_TERMINAL_REWARD,
+            "scratch_reward": 0.0,
+        },
         "algorithm": {
             "name": "PPO",
             "policy": "BoundedActorCriticPolicy",

@@ -132,7 +132,7 @@ def decode_action(
     object_position: np.ndarray,
     pocket_position: np.ndarray,
 ) -> tuple[np.ndarray, float]:
-    """Map a normalized PPO action to world-frame direction and cue speed."""
+    """Map a normalized policy action to world-frame direction and cue speed."""
 
     clipped = np.clip(np.asarray(action, dtype=np.float64), -1.0, 1.0)
     if clipped.shape != (2,):

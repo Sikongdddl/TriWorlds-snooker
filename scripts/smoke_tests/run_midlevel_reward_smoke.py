@@ -10,7 +10,10 @@ from _bootstrap import add_src_to_path
 
 add_src_to_path()
 
-from snooker_env.midlevel_ppo_env import compute_terminal_reward  # noqa: E402
+from snooker_env.midlevel_ppo_env import (  # noqa: E402
+    MAX_TERMINAL_REWARD,
+    compute_terminal_reward,
+)
 from snooker_env.midlevel_two_ball import TwoBallShotResult  # noqa: E402
 
 
@@ -46,13 +49,30 @@ def main() -> None:
         target,
     )
     close_miss = compute_terminal_reward(
-        replace(base, object_pocket=None, min_object_pocket_distance=0.01), target
+        replace(
+            base,
+            object_pocket=None,
+            object_ball_final_position=np.array([0.82, 0.0, 1.0]),
+            min_object_pocket_distance=0.01,
+        ),
+        target,
     )
     wrong_pocket = compute_terminal_reward(
         replace(base, object_pocket="pocket_middle_negx"), target
     )
     scratch = compute_terminal_reward(
-        replace(base, cue_pocket="pocket_middle_posx", stopped=False), target
+        replace(base, cue_pocket="pocket_middle_posx", stopped=False),
+        target,
+    )
+    timeout = compute_terminal_reward(
+        replace(
+            base,
+            object_pocket=None,
+            stopped=False,
+            timed_out=True,
+            object_ball_final_position=np.array([0.72, 0.0, 1.0]),
+        ),
+        target,
     )
 
     print(
@@ -60,14 +80,24 @@ def main() -> None:
         f"close_miss={close_miss.total:.4f} wrong={wrong_pocket.total:.4f} "
         f"scratch={scratch.total:.4f}"
     )
-    if not good.total > bad_position.total > close_miss.total > wrong_pocket.total:
-        raise RuntimeError("Terminal reward ordering is incorrect.")
-    if scratch.total >= close_miss.total:
-        raise RuntimeError("A scratch must score below a near-pocket miss.")
+    if not 0.0 <= close_miss.object_ball_reward < 1.0:
+        raise RuntimeError("Object-ball distance reward is outside [0, 1).")
+    if good.object_ball_reward != 1.0 or wrong_pocket.object_ball_reward != 0.0:
+        raise RuntimeError("Only the requested pocket may receive the pot reward.")
+    if not good.cue_position_reward > bad_position.cue_position_reward > 0.0:
+        raise RuntimeError("Cue-position reward does not decrease with distance.")
+    if close_miss.cue_position_reward != 0.0:
+        raise RuntimeError("Cue-position reward leaked into a non-pot outcome.")
+    if scratch.total != 0.0:
+        raise RuntimeError("A scratch must override all reward components to zero.")
+    if timeout.total != 0.0:
+        raise RuntimeError("A timed-out moving state must not be treated as a stop point.")
     if not good.joint_success or bad_position.joint_success:
         raise RuntimeError("Joint-success gating does not use the 5 cm stop threshold.")
-    if close_miss.position_reward != 0.0:
-        raise RuntimeError("Position reward leaked into a non-pot outcome.")
+    if good.total != MAX_TERMINAL_REWARD:
+        raise RuntimeError("An exact joint success does not receive the maximum reward.")
+    if good.joint_success_bonus <= 0.0 or bad_position.joint_success_bonus != 0.0:
+        raise RuntimeError("The 5 cm joint-success bonus is not gated correctly.")
 
 
 if __name__ == "__main__":

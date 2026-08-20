@@ -1,4 +1,4 @@
-"""Single-step contextual PPO environment for feasible two-ball shots."""
+"""Single-step contextual RL environment for feasible two-ball shots."""
 
 from __future__ import annotations
 
@@ -17,9 +17,8 @@ from snooker_env.midlevel_tasks import (
     TwoBallTaskDataset,
 )
 from snooker_env.midlevel_two_ball import (
-    MAX_CUE_SPEED,
     MAX_SHOT_TIME,
-    MIN_CUE_SPEED,
+    POCKET_POSITIONS,
     STOP_HOLD_TIME,
     STOP_SPEED_THRESHOLD,
     TwoBallShotResult,
@@ -31,6 +30,17 @@ from snooker_env.midlevel_two_ball import (
 
 OBSERVATION_X_SCALE = 0.75
 OBSERVATION_Y_SCALE = 1.40
+MIDLEVEL_REWARD_VERSION = "position-priority-distance-v2"
+OBJECT_POCKET_REWARD_DISTANCE_SCALE = 0.25
+CUE_POSITION_REWARD_DISTANCE_SCALE = 0.05
+OBJECT_BALL_REWARD_WEIGHT = 1.0
+CUE_POSITION_REWARD_WEIGHT = 2.0
+JOINT_SUCCESS_REWARD_BONUS = 0.5
+MAX_TERMINAL_REWARD = (
+    OBJECT_BALL_REWARD_WEIGHT
+    + CUE_POSITION_REWARD_WEIGHT
+    + JOINT_SUCCESS_REWARD_BONUS
+)
 
 
 @dataclass(frozen=True)
@@ -38,34 +48,20 @@ class RewardBreakdown:
     """Named terminal reward components for logging and tests."""
 
     total: float
-    correct_pot: float
-    legal_first_contact: float
-    object_progress: float
-    position_reward: float
-    cue_scratch: float
-    wrong_pocket: float
-    no_ball_contact: float
-    cushion_before_object: float
-    timeout: float
-    numerical_failure: float
-    speed_penalty: float
+    object_ball_reward: float
+    cue_position_reward: float
+    object_pocket_error: float
     stop_error: float
     joint_success: bool
+    joint_success_bonus: float
 
     def as_info(self) -> dict[str, float | bool]:
         return {
             "reward_total": self.total,
-            "reward_correct_pot": self.correct_pot,
-            "reward_legal_first_contact": self.legal_first_contact,
-            "reward_object_progress": self.object_progress,
-            "reward_position": self.position_reward,
-            "penalty_cue_scratch": self.cue_scratch,
-            "penalty_wrong_pocket": self.wrong_pocket,
-            "penalty_no_ball_contact": self.no_ball_contact,
-            "penalty_cushion_before_object": self.cushion_before_object,
-            "penalty_timeout": self.timeout,
-            "penalty_numerical_failure": self.numerical_failure,
-            "penalty_speed": self.speed_penalty,
+            "reward_object_ball": self.object_ball_reward,
+            "reward_cue_position": self.cue_position_reward,
+            "reward_joint_success_bonus": self.joint_success_bonus,
+            "object_pocket_error": self.object_pocket_error,
             "stop_error": self.stop_error,
             "joint_success": self.joint_success,
         }
@@ -121,71 +117,70 @@ def compute_terminal_reward(
     result: TwoBallShotResult,
     target_stop_position: np.ndarray,
 ) -> RewardBreakdown:
-    """Compute the terminal reward with position shaping gated by a legal pot."""
+    """Compute two normalized distance rewards, with scratch overriding both."""
 
-    initial_distance = max(float(result.initial_object_pocket_distance), 1e-12)
-    progress_fraction = np.clip(
-        (initial_distance - float(result.min_object_pocket_distance)) / initial_distance,
-        0.0,
-        1.0,
-    )
+    if result.correct_pot:
+        object_pocket_error = 0.0
+    elif result.object_pocket is not None:
+        # Pocketed balls are parked outside the table, so a wrong-pocket
+        # outcome has no meaningful final-position distance to the target.
+        object_pocket_error = float("inf")
+    else:
+        target_pocket_position = POCKET_POSITIONS[result.target_pocket]
+        object_pocket_error = float(
+            np.linalg.norm(
+                result.object_ball_final_position[:2]
+                - np.asarray(target_pocket_position, dtype=np.float64)[:2]
+            )
+        )
     stop_error = float(
-        np.linalg.norm(result.cue_ball_final_position[:2] - np.asarray(target_stop_position)[:2])
+        np.linalg.norm(
+            result.cue_ball_final_position[:2]
+            - np.asarray(target_stop_position, dtype=np.float64)[:2]
+        )
     )
-    position_reward = 0.0
-    if result.correct_pot and not result.cue_scratch and result.stopped:
-        position_reward = 6.0 * float(np.exp(-((stop_error / 0.10) ** 2)))
-        if stop_error <= 0.05:
-            position_reward += 4.0
 
-    correct_pot = 10.0 if result.correct_pot else 0.0
-    legal_contact = 1.0 if result.legal_first_contact else 0.0
-    object_progress = 2.0 * float(progress_fraction)
-    cue_scratch = -15.0 if result.cue_scratch else 0.0
-    wrong_pocket = -10.0 if result.wrong_pocket else 0.0
-    no_contact = -2.0 if not result.legal_first_contact else 0.0
-    cushion_before_object = -2.0 if result.cushion_before_object else 0.0
-    timeout = -2.0 if result.timed_out else 0.0
-    numerical_failure = -20.0 if result.numerical_failure else 0.0
-    normalized_speed = np.clip(
-        (float(result.cue_speed) - MIN_CUE_SPEED) / (MAX_CUE_SPEED - MIN_CUE_SPEED),
-        0.0,
-        1.0,
+    object_ball_reward = 0.0
+    cue_position_reward = 0.0
+    if not result.cue_scratch:
+        if result.correct_pot:
+            object_ball_reward = 1.0
+        elif (
+            result.object_pocket is None
+            and result.stopped
+            and np.isfinite(object_pocket_error)
+        ):
+            object_ball_reward = float(
+                np.exp(-object_pocket_error / OBJECT_POCKET_REWARD_DISTANCE_SCALE)
+            )
+
+        if result.correct_pot and result.stopped and np.isfinite(stop_error):
+            cue_position_reward = float(
+                np.exp(-stop_error / CUE_POSITION_REWARD_DISTANCE_SCALE)
+            )
+
+    joint_success = bool(
+        result.correct_pot
+        and not result.cue_scratch
+        and result.stopped
+        and stop_error <= 0.05
     )
-    speed_penalty = -0.05 * float(normalized_speed**2)
+    joint_success_bonus = (
+        JOINT_SUCCESS_REWARD_BONUS if joint_success else 0.0
+    )
     total = (
-        correct_pot
-        + legal_contact
-        + object_progress
-        + position_reward
-        + cue_scratch
-        + wrong_pocket
-        + no_contact
-        + cushion_before_object
-        + timeout
-        + numerical_failure
-        + speed_penalty
+        OBJECT_BALL_REWARD_WEIGHT * object_ball_reward
+        + CUE_POSITION_REWARD_WEIGHT * cue_position_reward
+        + joint_success_bonus
     )
     return RewardBreakdown(
         total=float(total),
-        correct_pot=correct_pot,
-        legal_first_contact=legal_contact,
-        object_progress=object_progress,
-        position_reward=position_reward,
-        cue_scratch=cue_scratch,
-        wrong_pocket=wrong_pocket,
-        no_ball_contact=no_contact,
-        cushion_before_object=cushion_before_object,
-        timeout=timeout,
-        numerical_failure=numerical_failure,
-        speed_penalty=speed_penalty,
+        object_ball_reward=object_ball_reward,
+        cue_position_reward=cue_position_reward,
+        object_pocket_error=object_pocket_error,
         stop_error=stop_error,
-        joint_success=bool(
-            result.correct_pot
-            and not result.cue_scratch
-            and result.stopped
-            and stop_error <= 0.05
-        ),
+        joint_success=joint_success,
+        joint_success_bonus=joint_success_bonus,
     )
 
 
@@ -277,7 +272,10 @@ class MidLevelTwoBallPPOEnv(gym.Env[np.ndarray, np.ndarray]):
             direction,
             speed,
         )
-        reward = compute_terminal_reward(result, self._task.target_stop_position)
+        reward = compute_terminal_reward(
+            result,
+            self._task.target_stop_position,
+        )
         observation = task_observation(self._task)
         # A shot, including one that reaches the simulation deadline, is the
         # complete one-step contextual-bandit outcome.  Returning truncated
@@ -303,6 +301,9 @@ class MidLevelTwoBallPPOEnv(gym.Env[np.ndarray, np.ndarray]):
             "object_pocket": result.object_pocket,
             "cue_pocket": result.cue_pocket,
             "elapsed_time": result.elapsed_time,
+            "minimum_object_pocket_distance": result.min_object_pocket_distance,
+            "cue_ball_final_position": result.cue_ball_final_position.copy(),
+            "object_ball_final_position": result.object_ball_final_position.copy(),
             **reward.as_info(),
         }
         return observation, reward.total, terminated, truncated, info
@@ -315,3 +316,7 @@ class MidLevelTwoBallPPOEnv(gym.Env[np.ndarray, np.ndarray]):
 
     def close(self) -> None:
         self._task = None
+
+
+# Canonical algorithm-neutral name; retain the PPO-era name for compatibility.
+MidLevelTwoBallEnv = MidLevelTwoBallPPOEnv

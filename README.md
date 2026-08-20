@@ -15,7 +15,7 @@ Implemented:
 - Dynamic cue ball and object balls with free joints.
 - An articulated LIFT robot scaffold in the default scene.
 - Robot-free mid-level training scene for cue/ball physics experiments.
-- Single-step two-ball Gymnasium environment and contextual PPO training path.
+- Single-step two-ball Gymnasium environment and deterministic TD3+BC with cue-position HER.
 - A 12-D residual joint-position Gymnasium environment with differential-IK nominal control.
 - The imported Gento Skye URDF, 14-D role-aware differential IK, and matching PPO residual checkpoint.
 - A physical Gento cue grasp: side approach, vertically closing fingers, and solid palm guards without weld constraints.
@@ -234,15 +234,22 @@ Start a PPO training run:
 python scripts/train/train_lowlevel_residual.py --total-timesteps 100000
 ```
 
-## Mid-Level Two-Ball PPO
+## Mid-Level Two-Ball TD3 + BC + HER
 
-The first learned mid-level policy is a robot-free, one-shot contextual PPO task. Its normalized observation is:
+The first learned mid-level policy is a robot-free, one-shot contextual-bandit
+task trained with a deterministic TD3-style actor. Its normalized observation is:
 
 ```text
 [cue_x, cue_y, object_x, object_y, pocket_x, pocket_y, stop_x, stop_y]
 ```
 
-The two normalized actions select a ghost-ball angle residual in `[-15, 15]` degrees and cue speed in `[0.3, 2.5]` m/s. A deterministic executor keeps the cue horizontal, hits the cue-ball center, and simulates the exact source table at a 10 us timestep until the required balls remain below the linear and surface-angular stop thresholds for 0.2 s.
+The general environment action contains a ghost-ball angle residual in
+`[-15, 15]` degrees and cue speed in `[0.3, 2.5]` m/s. The conservative
+learner fixes the angle residual at zero and only adjusts speed around its
+frozen BC prediction. A deterministic executor keeps the cue horizontal, hits
+the cue-ball center, and simulates the exact source table at a 10 us timestep
+until the required balls remain below the linear and surface-angular stop
+thresholds for 0.2 s.
 
 Generate the default independent task libraries (61,440 train and 6,144 validation):
 
@@ -262,43 +269,124 @@ Loading rejects a task file after its data, model, or backend changes. CPU-only
 libraries remain available with `--backend cpu --workers 32`, but cannot be
 used for MJWarp training.
 
-Train with 1,024 GPU-resident MuJoCo Warp worlds and one shot per world per
+Train with 4,096 GPU-resident MuJoCo Warp worlds and one shot per world per
 rollout:
 
 ```bash
-python scripts/train/train_midlevel_two_ball_ppo.py \
+python scripts/train/train_midlevel_two_ball_td3_her.py \
   --tasks outputs/tasks/midlevel_two_ball_train.npz \
   --backend mujoco-warp \
   --physics-device cuda:0 \
-  --num-envs 1024 \
-  --bc-epochs 100 \
-  --angle-action-std 0.05 \
-  --speed-action-std 0.25 \
-  --total-timesteps 1000000
+  --device cuda:0 \
+  --num-envs 4096 \
+  --buffer-size 327680 \
+  --batch-size 1024 \
+  --gradient-steps 64 \
+  --actor-learning-rate 1e-5 \
+  --critic-learning-rate 3e-4 \
+  --critic-warmup-updates 8192 \
+  --critic-probe-delta-weight 1.0 \
+  --critic-probe-ranking-weight 0.0 \
+  --critic-action-center-scale-mps 0.03 \
+  --critic-min-candidate-selection-count 128 \
+  --critic-min-candidate-improvement-precision 0.75 \
+  --critic-min-candidate-improvement-precision-lower-95 0.65 \
+  --critic-min-candidate-reward-improvement 0.002 \
+  --actor-update-interval 8 \
+  --actor-learning-starts 16384 \
+  --actor-candidate-supervision-weight 1.0 \
+  --actor-physical-probe-supervision-weight 0.0 \
+  --actor-candidate-min-q-improvement 0.10 \
+  --actor-candidate-min-safe-q 1.5 \
+  --actor-candidate-offsets-mps -0.03 -0.01 0.0 0.01 0.03 \
+  --max-speed-residual-mps 0.03 \
+  --residual-exploration-initial-std 0.35 \
+  --residual-exploration-final-std 0.05 \
+  --residual-exploration-decay-timesteps 65536 \
+  --her-ratio 0.10 \
+  --success-replay-ratio 0.20 \
+  --failure-replay-ratio 0.20 \
+  --local-probe-replay-ratio 0.25 \
+  --local-probe-task-count 16384 \
+  --local-probe-offsets-mps -0.03 -0.01 0.0 0.01 0.03 \
+  --bc-epochs 600 \
+  --bc-batch-size 2048 \
+  --bc-final-learning-rate 3e-5 \
+  --bc-speed-weight 8.0 \
+  --bc-validation-tasks outputs/tasks/midlevel_two_ball_validation.npz \
+  --bc-max-validation-speed-mae-mps 0.025 \
+  --bc-max-validation-speed-p95-mps 0.09 \
+  --bc-regularization-residual-weight 0.25 \
+  --total-timesteps 65536
 ```
 
 The batched backend keeps physics and contact/terminal reduction on CUDA,
 accumulates capacity overflow across the entire shot, and transfers only
 terminal metrics to the host. The original spawned CPU backend remains
-available with `--backend cpu`. Use 4--8 worlds and a matching batch size for
+available with `--backend cpu`. Use 4--8 worlds and a small replay batch for
 local smoke runs. A fresh run first behavior-clones the feasible action stored
-with every generated task, then PPO fine-tunes the bounded policy. The default
-latent exploration standard deviations are independent: `0.05` for the angle
-residual (about 0.75 degrees near the mean) and `0.25` for speed. PPO uses a
-tanh-transformed Gaussian so sampled and executed actions have identical
-bounded log-probabilities. Behavior-cloning reconstruction metrics are stored
-beside the final checkpoint as `.bc.json`. `--resume CHECKPOINT.zip` does not
-repeat behavior cloning, restores the timestep counter, and rejects any
-dataset, backend, environment, pretraining, or optimizer-setting manifest
-mismatch. Evaluate a fixed validation set with:
+with every generated task and saves a `.bc_only.zip` baseline. Actor and critic
+both use a 47-dimensional deterministic geometry representation. BC uses a
+larger network, speed-weighted loss, and a decaying learning rate; a fixed
+validation library must pass both mean and p95 speed-error gates before any
+physical RL rollout.
+
+Every certified task/action is inserted into replay at maximum reward. Before
+critic warmup, balanced complete execution batches are replayed at five speed
+offsets without changing any task's MJWarp world slot. The offsets execute
+serially in that same slot around the frozen BC action at `-0.03`, `-0.01`,
+`0`, `+0.01`, and `+0.03` m/s. The twin critics express speed relative to the
+same frozen BC prediction, directly regress terminal reward, and explicitly
+fit each same-state reward delta relative to the measured BC center. A
+deterministic task-index split removes every transition from held-out tasks,
+including certified prefill and later online samples, from Critic training.
+
+The actor is not allowed to exploit a smooth Q gradient across discontinuous
+pot/scratch boundaries. Instead, both critics must approve one of the five
+measured candidates, after which the delayed actor is supervised toward that
+candidate while retaining its frozen-BC regularizer. Direct supervision toward
+the per-task probe optimum is disabled because real curves show that label is
+not yet predictable on unseen tasks. Before any online shot, a real-physics
+gate requires at least 128 non-center choices, 75% true-improvement precision
+(and a 65% Wilson lower bound), positive mean reward, no loss of correct-pot or
+joint success, and no increase in failures on held-out tasks. A rejection saves
+the Critic/replay audit and stops safely at the `.bc_only.zip` policy.
+
+The online BC penalty is measured in bounded residual units, rather than in the
+much wider normalized physical-speed range, so its configured weight remains a
+material constraint on every Actor update.
+
+Online collection then hard-locks the ghost-ball angle, keeps the BC actor as
+an immutable baseline, and explores only a bounded `0.03 m/s` speed residual.
+Independent Gaussian residual noise decays from `0.35` to `0.05` in normalized
+residual units over 65,536 physical shots. The residual actor remains frozen
+for the first 16,384 shots. It tracks only the safety-gated candidate approved
+by both critics, strong BC anchoring does not decay, and it updates once per
+eight critic steps. Since each episode is one terminal action, unused bootstrapping,
+target-policy smoothing, and entropy updates are skipped. The comparison stage
+uses 16 rollouts (`65,536` shots) and 64 critic steps after each rollout.
+
+The custom HER buffer admits only correct-target-pot, no-scratch, stopped shots
+and relabels only the requested cue-ball stop position to the achieved stop; it
+never changes the target pocket. Minibatches reserve 10% for hindsight, 20%
+each for original successes and scratch/timeout/wrong-pocket failures, 25% for
+the same-state local probes, and 25% for uniform samples. The position-priority
+reward uses a 5 cm cue-stop distance scale, doubles the cue-position component,
+adds a 5 cm success bonus, and still hard-zeros every scratch. Behavior-cloning
+metrics are stored as `.bc.json` and the final replay state as
+`.replay_buffer.pkl`. Resume requires both the checkpoint and replay buffer and
+rejects incompatible manifests.
+Evaluate a fixed validation set with:
 
 ```bash
-python scripts/tools/evaluate_midlevel_two_ball_ppo.py \
-  outputs/checkpoints/midlevel_two_ball_ppo.zip \
+python scripts/tools/evaluate_midlevel_two_ball_td3_her.py \
+  outputs/checkpoints/midlevel_two_ball_td3_her_v4.zip \
   --backend mujoco-warp
 ```
 
-`PPOCheckpointMidLevelPolicy` adapts a checkpoint to both `ImpactParameters` and the existing `SkillCommand + SceneState -> CueCommand` pipeline contract. The original scripted policies and staged curriculum scaffold remain available.
+`TD3CheckpointMidLevelPolicy` adapts a checkpoint to both `ImpactParameters`
+and the existing `SkillCommand + SceneState -> CueCommand` pipeline contract.
+The original scripted policies and staged curriculum scaffold remain available.
 
 ## Validation and Smoke Tests
 
@@ -334,9 +422,16 @@ python scripts/smoke_tests/pipeline_smoke.py
 python scripts/smoke_tests/run_midlevel_env_smoke.py
 python scripts/smoke_tests/midlevel_curriculum_smoke.py
 python scripts/smoke_tests/run_midlevel_reward_smoke.py
+python scripts/smoke_tests/run_midlevel_single_step_her_smoke.py
 python scripts/smoke_tests/run_midlevel_two_ball_ppo_env_smoke.py
 python scripts/smoke_tests/run_midlevel_ppo_training_smoke.py
 python scripts/smoke_tests/run_midlevel_mujoco_warp_ppo_smoke.py
+python scripts/smoke_tests/run_midlevel_td3_her_optimizer_smoke.py
+python scripts/smoke_tests/run_midlevel_conservative_residual_td3_smoke.py
+python scripts/smoke_tests/run_midlevel_critic_actor_gate_smoke.py
+python scripts/smoke_tests/run_midlevel_critic_local_probe_smoke.py
+python scripts/smoke_tests/run_midlevel_td3_post_update_smoke.py
+python scripts/smoke_tests/run_midlevel_mujoco_warp_td3_her_smoke.py
 ```
 
 Cue spin response checks:

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, ClassVar, Mapping, Sequence
 
 import numpy as np
 from stable_baselines3 import PPO
@@ -36,7 +36,7 @@ from snooker_env.pipeline_types import CueCommand, Pose3D, SceneState, SkillComm
 from snooker_env.table_geometry import BALL_RADIUS
 
 
-MIDLEVEL_TRAINING_MANIFEST_VERSION = 2
+MIDLEVEL_TRAINING_MANIFEST_VERSION = 5
 
 
 class BoundedActorCriticPolicy(ActorCriticPolicy):
@@ -330,7 +330,7 @@ def manifest_differences(
 
 
 def require_checkpoint_manifest(
-    model: PPO,
+    model: Any,
     expected: Mapping[str, object],
     *,
     context: str,
@@ -350,7 +350,7 @@ def require_checkpoint_manifest(
 
 
 def require_checkpoint_manifest_subset(
-    model: PPO,
+    model: Any,
     expected: Mapping[str, object],
     *,
     context: str,
@@ -408,8 +408,11 @@ def _horizontal_cue_pose(
     return Pose3D(position=cue_body_position, quat_wxyz=quaternion)
 
 
-class PPOCheckpointMidLevelPolicy:
-    """Expose a trained contextual PPO policy through existing interfaces."""
+class CheckpointMidLevelPolicy:
+    """Expose a trained contextual policy through existing interfaces."""
+
+    model_class: ClassVar[type[Any]] = PPO
+    algorithm_label: ClassVar[str] = "checkpoint"
 
     def __init__(
         self,
@@ -421,7 +424,7 @@ class PPOCheckpointMidLevelPolicy:
     ) -> None:
         self.skill_id = skill_id
         self.deterministic = bool(deterministic)
-        self.model = PPO.load(str(checkpoint), device=device)
+        self.model = self.model_class.load(str(checkpoint), device=device)
 
     def predict(
         self,
@@ -464,7 +467,7 @@ class PPOCheckpointMidLevelPolicy:
             raise KeyError(f"Unknown named pocket: {pocket_name}")
         target_stop = command.intent.desired_cue_ball_position
         if target_stop is None:
-            raise ValueError("PPO position-shot policy requires desired_cue_ball_position.")
+            raise ValueError("Position-shot policy requires desired_cue_ball_position.")
         prediction = self.predict(
             state.balls[cue_name].position,
             state.balls[object_name].position,
@@ -488,20 +491,29 @@ class PPOCheckpointMidLevelPolicy:
                 linear_velocity=zero.copy(),
                 angular_velocity=zero.copy(),
                 duration=0.05,
-                debug_label=f"{self.skill_id.value}:ppo_setup",
+                debug_label=f"{self.skill_id.value}:{self.algorithm_label}_setup",
             ),
             CueCommand(
                 pose=start_pose,
                 linear_velocity=direction * impact.cue_speed,
                 angular_velocity=zero.copy(),
                 duration=(CUE_START_BACKOFF + CUE_FOLLOW_THROUGH) / impact.cue_speed,
-                debug_label=f"{self.skill_id.value}:ppo_stroke",
+                debug_label=f"{self.skill_id.value}:{self.algorithm_label}_stroke",
             ),
             CueCommand(
                 pose=follow_pose,
                 linear_velocity=zero.copy(),
                 angular_velocity=zero.copy(),
                 duration=0.05,
-                debug_label=f"{self.skill_id.value}:ppo_follow_through",
+                debug_label=(
+                    f"{self.skill_id.value}:{self.algorithm_label}_follow_through"
+                ),
             ),
         )
+
+
+class PPOCheckpointMidLevelPolicy(CheckpointMidLevelPolicy):
+    """Backward-compatible adapter for contextual PPO checkpoints."""
+
+    model_class = PPO
+    algorithm_label = "ppo"

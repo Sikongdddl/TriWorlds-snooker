@@ -1,4 +1,4 @@
-"""Generate exact feasible train/validation libraries for mid-level PPO."""
+"""Generate exact feasible train/validation libraries for learned mid-level policies."""
 
 from __future__ import annotations
 

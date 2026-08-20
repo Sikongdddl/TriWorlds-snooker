@@ -16,6 +16,17 @@ Run all repository commands in the `pool` Conda environment:
 conda activate pool
 ```
 
+GPU workloads must run on the `node31` compute node rather than on the local/login node. Check GPU utilization first, prefer an idle GPU, and select it explicitly with `CUDA_VISIBLE_DEVICES`. `node31` and the local node share the same filesystem, so do not copy or synchronize the repository between them. Use this workflow:
+
+```bash
+ssh node31
+cd TriWorlds-snooker/
+conda activate pool
+CUDA_VISIBLE_DEVICES=<gpu-index> python <script.py> [args...]
+```
+
+Inside the launched process, the selected physical GPU is exposed as `cuda:0`; continue to pass `--physics-device cuda:0` to repository scripts when applicable.
+
 Useful checks:
 
 ```bash
