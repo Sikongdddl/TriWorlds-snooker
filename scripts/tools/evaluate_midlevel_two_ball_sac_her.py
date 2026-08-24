@@ -1,4 +1,4 @@
-"""Evaluate a deterministic TD3+BC+HER checkpoint on a fixed task library."""
+"""Evaluate a deterministic single-step Actor on a fixed task library."""
 
 from __future__ import annotations
 
@@ -47,6 +47,22 @@ def main() -> None:
     parser.add_argument("--device", default="cpu")
     parser.add_argument("--stochastic", action="store_true")
     parser.add_argument(
+        "--angle-checkpoint",
+        type=Path,
+        help=(
+            "Use this checkpoint's angle output while retaining the primary "
+            "checkpoint's speed; intended for controlled development A/B."
+        ),
+    )
+    parser.add_argument(
+        "--force-zero-angle",
+        action="store_true",
+        help=(
+            "Set the normalized angle action exactly to zero while retaining "
+            "the primary checkpoint's speed."
+        ),
+    )
+    parser.add_argument(
         "--backend",
         choices=("mujoco-warp", "cpu"),
         default="mujoco-warp",
@@ -56,10 +72,19 @@ def main() -> None:
     parser.add_argument("--chunk-steps", type=int, default=16)
     parser.add_argument("--check-interval-steps", type=int, default=2048)
     parser.add_argument("--max-shot-time", type=float, default=8.0)
+    parser.add_argument(
+        "--details-output",
+        type=Path,
+        help="Save deterministic per-task actions and outcomes as a compressed NPZ.",
+    )
     args = parser.parse_args()
 
     if args.max_tasks is not None and args.max_tasks <= 0:
         raise ValueError("--max-tasks must be positive when provided.")
+    if args.force_zero_angle and args.angle_checkpoint is not None:
+        raise ValueError(
+            "--force-zero-angle and --angle-checkpoint are mutually exclusive."
+        )
     dataset = TwoBallTaskDataset.load(args.tasks, validate_model=False)
     requested_physics_backend = (
         MUJOCO_WARP_PHYSICS_BACKEND
@@ -89,45 +114,76 @@ def main() -> None:
             "Evaluation checkpoint uses an unsupported TD3+BC version: "
             f"{checkpoint_algorithm_version!r}."
         )
+    required_manifest = {
+        "manifest_version": MIDLEVEL_TRAINING_MANIFEST_VERSION,
+        "shot_execution_version": SHOT_EXECUTION_VERSION,
+        "physics": {
+            "xml_sha256": dataset.xml_hash,
+            "model_sha256": dataset.model_hash,
+            "backend": dataset.physics_backend,
+            "backend_sha256": dataset.backend_hash,
+        },
+        "environment": {
+            "backend": args.backend,
+            "max_shot_time": args.max_shot_time,
+        },
+        "algorithm": {
+            "name": "SingleStepTD3BC",
+            "version": checkpoint_algorithm_version,
+            "gamma": 0.0,
+            "deterministic_actor": True,
+            "actor_q_objective": None,
+        },
+        "reward": {"version": MIDLEVEL_REWARD_VERSION},
+        "hindsight_replay": {
+            "version": SINGLE_STEP_HER_VERSION,
+            "target_pocket_relabelled": False,
+        },
+    }
     require_checkpoint_manifest_subset(
         policy,
-        {
-            "manifest_version": MIDLEVEL_TRAINING_MANIFEST_VERSION,
-            "shot_execution_version": SHOT_EXECUTION_VERSION,
-            "physics": {
-                "xml_sha256": dataset.xml_hash,
-                "model_sha256": dataset.model_hash,
-                "backend": dataset.physics_backend,
-                "backend_sha256": dataset.backend_hash,
-            },
-            "environment": {
-                "backend": args.backend,
-                "max_shot_time": args.max_shot_time,
-            },
-            "algorithm": {
-                "name": "SingleStepTD3BC",
-                "version": checkpoint_algorithm_version,
-                "gamma": 0.0,
-                "deterministic_actor": True,
-                "actor_q_objective": "min_q1_q2",
-            },
-            "reward": {"version": MIDLEVEL_REWARD_VERSION},
-            "hindsight_replay": {
-                "version": SINGLE_STEP_HER_VERSION,
-                "target_pocket_relabelled": False,
-            },
-        },
+        required_manifest,
         context="Evaluation",
     )
+    angle_policy = None
+    if args.angle_checkpoint is not None:
+        angle_policy = SingleStepTD3BC.load(
+            str(args.angle_checkpoint),
+            device=args.device,
+        )
+        require_checkpoint_manifest_subset(
+            angle_policy,
+            required_manifest,
+            context="Angle-override evaluation",
+        )
+
+    def override_angle(
+        observation: np.ndarray,
+        action: np.ndarray,
+    ) -> np.ndarray:
+        if not args.force_zero_angle and angle_policy is None:
+            return action
+        controlled = np.asarray(action).copy()
+        if args.force_zero_angle:
+            controlled[..., 0] = 0.0
+        else:
+            angle_action, _ = angle_policy.predict(
+                observation,
+                deterministic=not args.stochastic,
+            )
+            controlled[..., 0] = np.asarray(angle_action)[..., 0]
+        return controlled
 
     infos: list[dict[str, object]] = []
     actions: list[np.ndarray] = []
+    parallel_num_envs = 1
     if args.backend == "mujoco-warp":
         if args.num_envs <= 0:
             raise ValueError("--num-envs must be positive.")
         task_count = len(dataset)
         count = task_count if args.max_tasks is None else min(task_count, args.max_tasks)
         batch_size = min(args.num_envs, count)
+        parallel_num_envs = batch_size
         env = MJWarpMidLevelVecEnv(
             dataset,
             args.model,
@@ -152,6 +208,7 @@ def main() -> None:
                     observation,
                     deterministic=not args.stochastic,
                 )
+                action = override_angle(observation, action)
                 _, rewards, _, batch_infos = env.step(action)
                 for offset in range(valid_count):
                     info = batch_infos[offset]
@@ -178,6 +235,7 @@ def main() -> None:
                     observation,
                     deterministic=not args.stochastic,
                 )
+                action = override_angle(observation, action)
                 _, reward, _, _, info = env.step(action)
                 info["reward"] = reward
                 infos.append(info)
@@ -222,9 +280,30 @@ def main() -> None:
             ),
         }
     report = {
-        "algorithm": "deterministic-TD3+BC+single-step-HER",
+        "algorithm": checkpoint_algorithm.get(
+            "training_objective",
+            "deterministic_single_step_actor",
+        ),
+        "checkpoint_container": checkpoint_algorithm.get("name"),
+        "critic_used_for_this_evaluation": False,
         "task_count": count,
         "physics_backend": args.backend,
+        "policy_device": args.device,
+        "speed_action_checkpoint": str(args.checkpoint),
+        "angle_action_source": (
+            "exact_zero"
+            if args.force_zero_angle
+            else (
+                str(args.angle_checkpoint)
+                if args.angle_checkpoint is not None
+                else str(args.checkpoint)
+            )
+        ),
+        "parallel_num_envs": parallel_num_envs,
+        "chunk_steps": args.chunk_steps if args.backend == "mujoco-warp" else None,
+        "check_interval_steps": (
+            args.check_interval_steps if args.backend == "mujoco-warp" else None
+        ),
         "correct_pot_rate": float(
             np.mean([bool(info["correct_pot"]) for info in infos])
         ),
@@ -274,6 +353,84 @@ def main() -> None:
             "max_wrong_pocket_rate": 0.01,
         },
     }
+    if args.details_output is not None:
+        if args.details_output.exists():
+            raise FileExistsError(args.details_output)
+        args.details_output.parent.mkdir(parents=True, exist_ok=True)
+        detail_metadata = {
+            "checkpoint": str(args.checkpoint),
+            "speed_action_checkpoint": str(args.checkpoint),
+            "angle_action_source": (
+                "exact_zero"
+                if args.force_zero_angle
+                else (
+                    str(args.angle_checkpoint)
+                    if args.angle_checkpoint is not None
+                    else str(args.checkpoint)
+                )
+            ),
+            "tasks": str(args.tasks),
+            "task_library_content_sha256": dataset.content_sha256(),
+            "physics_backend": args.backend,
+            "policy_device": args.device,
+            "stochastic": bool(args.stochastic),
+            "task_count": count,
+            "parallel_num_envs": parallel_num_envs,
+            "chunk_steps": (
+                args.chunk_steps if args.backend == "mujoco-warp" else None
+            ),
+            "check_interval_steps": (
+                args.check_interval_steps
+                if args.backend == "mujoco-warp"
+                else None
+            ),
+        }
+        np.savez_compressed(
+            args.details_output,
+            metadata=np.asarray(
+                json.dumps(detail_metadata, sort_keys=True),
+                dtype=np.str_,
+            ),
+            task_index=np.arange(count, dtype=np.int64),
+            candidate_seed=dataset.candidate_seeds[:count],
+            pocket_index=dataset.pocket_indices[:count],
+            action=action_array.astype(np.float32),
+            reward=np.asarray(
+                [float(info["reward"]) for info in infos],
+                dtype=np.float32,
+            ),
+            stop_error_m=stop_errors.astype(np.float32),
+            cue_speed_mps=cue_speeds.astype(np.float32),
+            correct_pot=np.asarray(
+                [bool(info["correct_pot"]) for info in infos],
+                dtype=np.bool_,
+            ),
+            cue_scratch=np.asarray(
+                [bool(info["cue_scratch"]) for info in infos],
+                dtype=np.bool_,
+            ),
+            wrong_pocket=np.asarray(
+                [bool(info["wrong_pocket"]) for info in infos],
+                dtype=np.bool_,
+            ),
+            stopped=np.asarray(
+                [bool(info["stopped"]) for info in infos],
+                dtype=np.bool_,
+            ),
+            timed_out=np.asarray(
+                [bool(info["timed_out"]) for info in infos],
+                dtype=np.bool_,
+            ),
+            numerical_failure=np.asarray(
+                [bool(info["numerical_failure"]) for info in infos],
+                dtype=np.bool_,
+            ),
+            joint_success=np.asarray(
+                [bool(info["joint_success"]) for info in infos],
+                dtype=np.bool_,
+            ),
+        )
+        print(f"details_output={args.details_output}", flush=True)
     print(json.dumps(report, indent=2, sort_keys=True))
 
 

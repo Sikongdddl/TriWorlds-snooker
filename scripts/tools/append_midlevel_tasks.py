@@ -55,15 +55,31 @@ def _require_compatible(
     for field in fields:
         if getattr(base, field) != getattr(addition, field):
             raise ValueError(f"Task libraries disagree on {field}.")
-    overlapping_seeds = np.intersect1d(
-        base.candidate_seeds,
-        addition.candidate_seeds,
-        assume_unique=False,
+    # ``candidate_seed`` is interpreted together with the requested pocket by
+    # ``_sample_candidate``.  A raw 32-bit seed collision in two different
+    # pockets therefore describes two different task geometries and becomes
+    # likely once libraries contain hundreds of thousands of rows.  Reject
+    # only collisions of the complete deterministic generation identity.
+    base_identities = set(
+        zip(
+            map(int, base.pocket_indices),
+            map(int, base.candidate_seeds),
+            strict=True,
+        )
     )
-    if overlapping_seeds.size:
+    addition_identities = set(
+        zip(
+            map(int, addition.pocket_indices),
+            map(int, addition.candidate_seeds),
+            strict=True,
+        )
+    )
+    overlapping_identities = base_identities.intersection(addition_identities)
+    if overlapping_identities:
         raise ValueError(
-            "Task libraries contain overlapping candidate seeds; refusing "
-            f"to append {overlapping_seeds.size} potentially duplicate tasks."
+            "Task libraries contain overlapping (pocket, candidate_seed) "
+            "identities; refusing to append "
+            f"{len(overlapping_identities)} duplicate tasks."
         )
 
 

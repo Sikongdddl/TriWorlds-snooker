@@ -17,7 +17,9 @@ from snooker_env.midlevel_env import DEFAULT_MIDLEVEL_MODEL  # noqa: E402
 from snooker_env.midlevel_mujoco_warp_vec_env import (  # noqa: E402
     MJWarpMidLevelVecEnv,
 )
+from snooker_env.midlevel_ppo_env import task_observation  # noqa: E402
 from snooker_env.midlevel_sac_her import (  # noqa: E402
+    SingleStepTD3BC,
     slot_aligned_local_probe_batch_starts,
 )
 from snooker_env.midlevel_tasks import (  # noqa: E402
@@ -57,6 +59,28 @@ def _generated_actions(
         dtype=np.float32,
     )
     return actions
+
+
+def _checkpoint_actions(
+    dataset: TwoBallTaskDataset,
+    task_indices: np.ndarray,
+    checkpoint: Path,
+    device: str,
+) -> np.ndarray:
+    policy = SingleStepTD3BC.load(str(checkpoint), device=device)
+    observations = np.stack(
+        [task_observation(dataset[int(task_index)]) for task_index in task_indices]
+    ).astype(np.float32)
+    actions, _ = policy.predict(observations, deterministic=True)
+    result = np.asarray(actions, dtype=np.float32)
+    if result.shape != (len(task_indices), 2):
+        raise RuntimeError(
+            "Checkpoint returned an unexpected action shape: "
+            f"{result.shape}."
+        )
+    if not bool(np.all(np.isfinite(result))):
+        raise RuntimeError("Checkpoint returned a non-finite action.")
+    return result
 
 
 def _execute(
@@ -199,6 +223,15 @@ def main() -> None:
     )
     parser.add_argument("--model", type=Path, default=DEFAULT_MIDLEVEL_MODEL)
     parser.add_argument("--physics-device", default="cuda:0")
+    parser.add_argument(
+        "--checkpoint",
+        type=Path,
+        help=(
+            "Audit deterministic actions from this checkpoint instead of the "
+            "published generated actions."
+        ),
+    )
+    parser.add_argument("--policy-device", default="cuda:0")
     parser.add_argument("--num-worlds", type=int, default=4096)
     parser.add_argument("--batch-start", type=int)
     parser.add_argument("--seed", type=int, default=10_000)
@@ -208,6 +241,11 @@ def main() -> None:
         type=int,
         nargs="+",
         default=(1, 1024),
+    )
+    parser.add_argument(
+        "--skip-cross-slot",
+        action="store_true",
+        help="Run only same-slot repeats; useful for checkpoint repeatability audits.",
     )
     parser.add_argument("--chunk-steps", type=int, default=64)
     parser.add_argument("--check-interval-steps", type=int, default=8192)
@@ -243,7 +281,13 @@ def main() -> None:
         raise ValueError("--batch-start must be a non-negative canonical boundary.")
     if batch_start + args.num_worlds > len(dataset):
         raise ValueError("--batch-start does not select a complete canonical batch.")
-    shifts = tuple(int(shift) % args.num_worlds for shift in args.cross_slot_shifts)
+    shifts = (
+        ()
+        if args.skip_cross_slot
+        else tuple(
+            int(shift) % args.num_worlds for shift in args.cross_slot_shifts
+        )
+    )
     if any(shift == 0 for shift in shifts) or len(set(shifts)) != len(shifts):
         raise ValueError("Cross-slot shifts must be unique and non-zero modulo width.")
 
@@ -252,7 +296,17 @@ def main() -> None:
         batch_start + args.num_worlds,
         dtype=np.int64,
     )
-    canonical_actions = _generated_actions(dataset, canonical_indices)
+    if args.checkpoint is None:
+        canonical_actions = _generated_actions(dataset, canonical_indices)
+        action_source = "published_generated_action"
+    else:
+        canonical_actions = _checkpoint_actions(
+            dataset,
+            canonical_indices,
+            args.checkpoint,
+            args.policy_device,
+        )
+        action_source = str(args.checkpoint)
     environment = MJWarpMidLevelVecEnv(
         dataset,
         args.model,
@@ -305,17 +359,22 @@ def main() -> None:
         for report in repeat_reports.values()
     )
     canonical_outcome = _outcome_report(reference)
-    canonical_certification_passed = (
-        canonical_outcome["valid_stop_rate"] == 1.0
-        and canonical_outcome["wrong_pocket_rate"] == 0.0
-    )
+    canonical_certification_passed = None
+    if args.checkpoint is None:
+        canonical_certification_passed = (
+            canonical_outcome["valid_stop_rate"] == 1.0
+            and canonical_outcome["wrong_pocket_rate"] == 0.0
+        )
     report = {
-        "audit_version": "mujoco-warp-world-slot-v1",
+        "audit_version": "mujoco-warp-world-slot-v2",
         "task_library": str(args.tasks),
         "task_count": len(dataset),
         "canonical_num_worlds": args.num_worlds,
         "batch_start": batch_start,
-        "action_source": "published_generated_action",
+        "action_source": action_source,
+        "policy_device": (
+            args.policy_device if args.checkpoint is not None else None
+        ),
         "repeat_count": args.repeat_count,
         "cross_slot_shifts": list(shifts),
         "canonical_outcome": canonical_outcome,
@@ -340,7 +399,7 @@ def main() -> None:
     print(json.dumps(report, sort_keys=True), flush=True)
     if not same_slot_passed:
         raise RuntimeError("Same-slot MJWarp replay is not deterministic.")
-    if not canonical_certification_passed:
+    if canonical_certification_passed is False:
         raise RuntimeError("Published generated actions failed canonical replay.")
 
 
