@@ -2,10 +2,10 @@
   <!-- Load the reusable ball class, textures, and materials directly from the
        source repository. The compiler override resolves those source textures
        while keeping this repository's robot and cue meshes resolvable. -->
-  <include file="/home/ubuntu/mujoco-billiards/ball-definitions.xml"/>
+  <include file="../../mujoco-billiards/ball-definitions.xml"/>
   <compiler angle="degree" coordinate="local" autolimits="true"
-            meshdir="/home/ubuntu/TriWorlds-snooker/models"
-            texturedir="/home/ubuntu/mujoco-billiards/img"/>
+            meshdir="."
+            texturedir="../../mujoco-billiards/img"/>
   <!-- Use a practical interactive step while retaining the source contact
        geometry and material parameters. -->
   <option timestep="0.00001" gravity="0 0 -9.81" integrator="Euler"

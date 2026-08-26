@@ -15,7 +15,7 @@ TOOLS = ROOT / "scripts" / "tools"
 if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))
 
-from run_midlevel_two_ball_ppo_env_smoke import _fixture_task  # noqa: E402
+from run_midlevel_two_ball_env_smoke import _fixture_task  # noqa: E402
 from snooker_env.midlevel_tasks import (  # noqa: E402
     TaskValidationReport,
     TwoBallTaskDataset,

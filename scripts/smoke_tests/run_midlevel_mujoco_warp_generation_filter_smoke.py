@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 import hashlib
 from pathlib import Path
 import tempfile
@@ -14,6 +15,7 @@ from _bootstrap import add_src_to_path
 add_src_to_path()
 
 import snooker_env.midlevel_mujoco_warp_tasks as generation  # noqa: E402
+from snooker_env.midlevel_difficulty import difficulty_cell  # noqa: E402
 from snooker_env.midlevel_mujoco_warp_tasks import (  # noqa: E402
     _canonical_replay_task,
     _fixed_layout_indices,
@@ -21,13 +23,16 @@ from snooker_env.midlevel_mujoco_warp_tasks import (  # noqa: E402
 from snooker_env.midlevel_mujoco_warp_vec_env import _hash_python_tree  # noqa: E402
 from snooker_env.midlevel_tasks import EVENT_FLAG_NAMES, TwoBallTask  # noqa: E402
 from snooker_env.midlevel_tasks import TwoBallTaskDataset  # noqa: E402
-from snooker_env.midlevel_two_ball import POCKET_NAMES  # noqa: E402
+from snooker_env.midlevel_two_ball import (  # noqa: E402
+    POCKET_NAMES,
+    POCKET_POSITIONS,
+)
 
 
 def _candidate() -> TwoBallTask:
     return TwoBallTask(
-        cue_position=np.array([0.1, -0.4], dtype=np.float64),
-        object_position=np.array([0.2, 0.4], dtype=np.float64),
+        cue_position=np.array([0.05, 0.25], dtype=np.float64),
+        object_position=np.array([0.45, 0.70], dtype=np.float64),
         pocket_name="pocket_corner_posx_posy",
         pocket_position=np.array([0.675, 1.31], dtype=np.float64),
         target_stop_position=np.array([0.1, -0.4], dtype=np.float64),
@@ -74,7 +79,7 @@ def _check_generator_orchestration() -> None:
             self.xml_hash = "1" * 64
             self.model_hash = "2" * 64
             self.pocket_positions = {
-                name: np.array([0.5, 0.5], dtype=np.float64)
+                name: np.asarray(POCKET_POSITIONS[name][:2], dtype=np.float64)
                 for name in POCKET_NAMES
             }
 
@@ -135,13 +140,30 @@ def _check_generator_orchestration() -> None:
         def close(self) -> None:
             return None
 
-    def fake_candidate(pocket_name, candidate_seed, simulator):
+    def fake_candidate(
+        pocket_name,
+        difficulty_cell_index,
+        candidate_seed,
+        simulator,
+    ):
+        cell = difficulty_cell(difficulty_cell_index)
+        cue_distance = float(np.mean(cell.cue_object_range_m))
+        object_distance = float(np.mean(cell.object_pocket_range_m))
+        pocket_position = simulator.pocket_positions[pocket_name]
+        object_position = pocket_position - np.array(
+            [object_distance, 0.0],
+            dtype=np.float64,
+        )
+        cue_position = object_position - np.array(
+            [cue_distance, 0.0],
+            dtype=np.float64,
+        )
         return TwoBallTask(
-            cue_position=np.array([0.0, -0.2], dtype=np.float64),
-            object_position=np.array([0.0, 0.2], dtype=np.float64),
+            cue_position=cue_position,
+            object_position=object_position,
             pocket_name=pocket_name,
-            pocket_position=simulator.pocket_positions[pocket_name].copy(),
-            target_stop_position=np.array([0.0, -0.2], dtype=np.float64),
+            pocket_position=pocket_position.copy(),
+            target_stop_position=cue_position.copy(),
             generated_direction=np.array([0.0, 1.0], dtype=np.float64),
             generated_speed=1.0,
             candidate_seed=candidate_seed,
@@ -297,6 +319,83 @@ def _check_backend_recanonicalization_guard() -> None:
         raise RuntimeError("Backend migration accepted a CPU task library.")
 
 
+def _check_batch_range_replay() -> None:
+    """Ensure multi-GPU ranges reproduce the final padded batch layout."""
+
+    class FakeSimulator:
+        xml_hash = "1" * 64
+        model_hash = "2" * 64
+        max_time = 8.0
+        stop_speed = 0.01
+        stop_hold_time = 0.2
+
+    class FakeEnvironment:
+        last_indices: list[int] = []
+
+        def __init__(self, dataset, _model_path, *, num_envs, **_kwargs):
+            self.dataset = dataset
+            self.num_envs = num_envs
+            self.indices = list(range(num_envs))
+
+        def set_options(self, options) -> None:
+            self.indices = [int(option["task_index"]) for option in options]
+            type(self).last_indices = self.indices
+
+        def reset(self) -> None:
+            return None
+
+        def step(self, _actions):
+            infos = []
+            for index in self.indices:
+                task = self.dataset[index]
+                info = _info(tuple(task.target_stop_position))
+                info["candidate_seed"] = task.candidate_seed
+                info["pocket_name"] = task.pocket_name
+                infos.append(info)
+            return None, None, None, infos
+
+        def close(self) -> None:
+            return None
+
+    tasks = [replace(_candidate(), candidate_seed=100 + index) for index in range(10)]
+    dataset = TwoBallTaskDataset.from_tasks(
+        tasks,
+        FakeSimulator(),
+        generation_seed=3,
+        physics_backend=generation.MUJOCO_WARP_PHYSICS_BACKEND,
+        backend_hash="3" * 64,
+    )
+    original_environment = generation.MJWarpMidLevelVecEnv
+    try:
+        generation.MJWarpMidLevelVecEnv = FakeEnvironment
+        report = generation.validate_mujoco_warp_task_dataset(
+            dataset,
+            model_path="fake.xml",
+            start_task=6,
+            max_tasks=4,
+            num_worlds=6,
+        )
+        if report.passed_count != 4 or report.checked_count != 4:
+            raise RuntimeError("Batch-range replay did not validate its full range.")
+        if FakeEnvironment.last_indices != [6, 7, 8, 9, 9, 9]:
+            raise RuntimeError("Batch-range replay changed final padding semantics.")
+        try:
+            generation.validate_mujoco_warp_task_dataset(
+                dataset,
+                model_path="fake.xml",
+                start_task=1,
+                max_tasks=2,
+                num_worlds=6,
+            )
+        except ValueError as error:
+            if "align" not in str(error):
+                raise
+        else:
+            raise RuntimeError("A non-aligned multi-GPU replay range was accepted.")
+    finally:
+        generation.MJWarpMidLevelVecEnv = original_environment
+
+
 def main() -> None:
     if _fixed_layout_indices(6, 10, 6) != [6, 7, 8, 9, 9, 9]:
         raise RuntimeError("Final partial-batch padding changed unexpectedly.")
@@ -350,6 +449,7 @@ def main() -> None:
     _check_generator_orchestration()
     _check_backend_hash_scope()
     _check_backend_recanonicalization_guard()
+    _check_batch_range_replay()
 
     print("mid-level MJWarp generation replay filter smoke passed")
 

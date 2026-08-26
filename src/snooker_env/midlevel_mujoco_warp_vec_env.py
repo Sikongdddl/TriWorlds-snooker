@@ -1,4 +1,4 @@
-"""Batched MuJoCo Warp backend for contextual two-ball PPO training.
+"""Batched MuJoCo Warp backend for contextual two-ball shot execution.
 
 One Stable-Baselines3 vector step executes one complete shot in every Warp
 world.  Physics state, contact-event reduction, stopping detection, and
@@ -26,7 +26,7 @@ from stable_baselines3.common.vec_env.base_vec_env import (
 import warp as wp
 
 from snooker_env.midlevel_env import DEFAULT_MIDLEVEL_MODEL
-from snooker_env.midlevel_ppo_env import compute_terminal_reward, task_observation
+from snooker_env.midlevel_two_ball_env import compute_terminal_reward, task_observation
 from snooker_env.midlevel_tasks import (
     MUJOCO_WARP_PHYSICS_BACKEND,
     TwoBallTaskDataset,
@@ -700,7 +700,7 @@ class MJWarpMidLevelVecEnv(VecEnv):
         wp.init()
         self.device = wp.get_device(device)
         if not self.device.is_cuda:
-            raise RuntimeError("MJWarp mid-level training requires a CUDA device.")
+            raise RuntimeError("MJWarp mid-level execution requires a CUDA device.")
 
         initial_data = mujoco.MjData(self.model)
         mujoco.mj_forward(self.model, initial_data)
@@ -855,7 +855,7 @@ class MJWarpMidLevelVecEnv(VecEnv):
             raise ValueError("Task dataset does not match the active base model.")
         if dataset.physics_backend != MUJOCO_WARP_PHYSICS_BACKEND:
             raise ValueError(
-                "MJWarp training requires tasks generated and replayed by MJWarp; "
+                "MJWarp execution requires tasks generated and replayed by MJWarp; "
                 f"received {dataset.physics_backend!r}."
             )
         if dataset.backend_hash != self.backend_hash:
@@ -1051,7 +1051,7 @@ class MJWarpMidLevelVecEnv(VecEnv):
                 f"Expected actions with shape {expected_shape}, got {values.shape}."
             )
         if not np.all(np.isfinite(values)):
-            raise ValueError("PPO actions must be finite.")
+            raise ValueError("Mid-level actions must be finite.")
         self._pending_actions = np.clip(values, -1.0, 1.0)
 
     def _decode_actions(
@@ -1199,7 +1199,7 @@ class MJWarpMidLevelVecEnv(VecEnv):
                 )
             assert_mujoco_warp_capacity(
                 self.warp_data,
-                context="batched mid-level PPO rollout",
+                context="batched mid-level rollout",
             )
 
     def _terminal_outputs(

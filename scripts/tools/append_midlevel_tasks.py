@@ -55,14 +55,13 @@ def _require_compatible(
     for field in fields:
         if getattr(base, field) != getattr(addition, field):
             raise ValueError(f"Task libraries disagree on {field}.")
-    # ``candidate_seed`` is interpreted together with the requested pocket by
-    # ``_sample_candidate``.  A raw 32-bit seed collision in two different
-    # pockets therefore describes two different task geometries and becomes
-    # likely once libraries contain hundreds of thousands of rows.  Reject
-    # only collisions of the complete deterministic generation identity.
+    # ``candidate_seed`` is interpreted together with the requested pocket and
+    # distance cell by ``_sample_candidate``. Reject only collisions of that
+    # complete deterministic generation identity.
     base_identities = set(
         zip(
             map(int, base.pocket_indices),
+            map(int, base.difficulty_indices()),
             map(int, base.candidate_seeds),
             strict=True,
         )
@@ -70,6 +69,7 @@ def _require_compatible(
     addition_identities = set(
         zip(
             map(int, addition.pocket_indices),
+            map(int, addition.difficulty_indices()),
             map(int, addition.candidate_seeds),
             strict=True,
         )
@@ -77,7 +77,8 @@ def _require_compatible(
     overlapping_identities = base_identities.intersection(addition_identities)
     if overlapping_identities:
         raise ValueError(
-            "Task libraries contain overlapping (pocket, candidate_seed) "
+            "Task libraries contain overlapping "
+            "(pocket, difficulty_cell, candidate_seed) "
             "identities; refusing to append "
             f"{len(overlapping_identities)} duplicate tasks."
         )

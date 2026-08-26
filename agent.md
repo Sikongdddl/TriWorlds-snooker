@@ -23,7 +23,8 @@ Run these from project root:
 ```bash
 python scripts/tools/inspect_model.py
 python scripts/smoke_tests/run_midlevel_env_smoke.py
-python scripts/smoke_tests/midlevel_curriculum_smoke.py
+python scripts/smoke_tests/run_midlevel_two_ball_env_smoke.py
+python scripts/smoke_tests/run_midlevel_bc_training_smoke.py
 python scripts/smoke_tests/pipeline_smoke.py
 ```
 
@@ -42,7 +43,7 @@ MUJOCO_GL=egl python scripts/render/render_midlevel_env_stroke.py
 
 ## Model Layout
 
-- `/home/ubuntu/mujoco-billiards/ball-definitions.xml`: ball class and numbered materials loaded directly by both active scenes; textures resolve from its `img/` directory.
+- `../mujoco-billiards/ball-definitions.xml`: ball class and numbered materials loaded directly by both active scenes; textures resolve from its `img/` directory.
 - `assets/table/mujoco_billiards`: retained source attribution; it is not the active ball-texture path.
 - `assets/table/pool_table_traditional`: legacy Sketchfab source retained for the cue asset and its license.
 - `assets/cue/sketchfab_pool_table_traditional`: localized Sketchfab cue visual mesh.
@@ -66,7 +67,8 @@ Source modules are intentionally flat under `src/snooker_env`:
 - `pipeline_low_level.py`: low-level controller placeholders.
 - `pipeline_system.py`: non-RL body positioning/recovery.
 - `midlevel_env.py`: robot-free ideal cue-control MuJoCo environment.
-- `midlevel_rl.py`: three-stage curriculum-learning interfaces.
+- `midlevel_two_ball_env.py`: single-step two-ball execution and reward.
+- `midlevel_bc.py`: direct behavior-cloning Actor and checkpoint adapter.
 
 High level selects semantic midlevel shot policy calls. Midlevel policies output low-level cue command trajectories:
 
@@ -84,20 +86,29 @@ Current midlevel policies:
 - `PositionShotPolicy`
 - `BreakShotPolicy`
 
-Do not expose internal stages as high-level calls. The stages are internal curriculum components.
+## Midlevel Direct Behavior Cloning
 
-## Midlevel RL Curriculum
+The learned two-ball policy uses one supervised stage and one seed. It maps the
+8-D shot observation directly to the normalized ghost-ball angle residual and
+cue speed. Training reconstructs the feasible action stored with every task;
+the fixed validation split reports reconstruction metrics but never selects a
+different seed or checkpoint.
 
-All semantic midlevel policies should follow this internal curriculum:
+Use `scripts/train/train_midlevel_bc.py` for a single run, or
+`scripts/train/run_midlevel_bc.sh <gpu-index>` for checked-GPU training followed
+by one physical validation. Regenerate task libraries whenever their active
+model or backend fingerprint is stale.
 
-1. `impact_parameter_inference`
-   - Learns cue direction, cue speed, contact offset, cue elevation, spin intent, tolerance.
-2. `cue_setup_trajectory_generation`
-   - Learns setup pose, align pose, and stroke-start pose.
-3. `stroke_trajectory_generation`
-   - Learns executable `CueCommand` sequence: setup, align, stroke-start, stroke, follow-through.
+Previously generated task arrays may be reused with
+`--allow-task-fingerprint-mismatch` only after representative physical replay
+shows equivalent outcomes. The option never bypasses backend-type or shot-timing
+differences, and the checkpoint records both fingerprint sets.
 
-`midlevel_rl.py` currently provides framework-free interfaces plus a scripted baseline. SAC training code should wrap these interfaces rather than changing the high/mid/low boundary.
+New task libraries must balance the 3×3 cue-object/object-pocket distance grid
+defined in `midlevel_difficulty.py` across every named pocket. Train and
+validation use independent generation seeds. Run
+`scripts/tools/audit_midlevel_task_difficulty.py --require-balanced` before
+training and retain the per-difficulty validation metrics in the BC report.
 
 ## Cue/Table Constraint
 
@@ -108,7 +119,7 @@ Cue/table feasibility is a simulator-layer hard constraint, not just a reward pe
 - `constraint_projection_count`
 - `min_cue_table_clearance`
 
-RL should observe the actual executed result. Projection count is diagnostic; it should not be treated as the only mechanism preventing impossible actions.
+Learned policies should use the actual executed result. Projection count is diagnostic; it should not be treated as the only mechanism preventing impossible actions.
 
 ## Important Caveats
 
@@ -126,7 +137,9 @@ These should be run in `pool`:
 
 ```bash
 python scripts/smoke_tests/run_midlevel_env_smoke.py
-python scripts/smoke_tests/midlevel_curriculum_smoke.py
+python scripts/smoke_tests/run_midlevel_two_ball_env_smoke.py
+python scripts/smoke_tests/run_midlevel_bc_training_smoke.py
+python scripts/smoke_tests/run_midlevel_difficulty_smoke.py
 ```
 
 Expected midlevel smoke characteristics:

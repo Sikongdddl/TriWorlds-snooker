@@ -15,7 +15,7 @@ Implemented:
 - Dynamic cue ball and object balls with free joints.
 - An articulated LIFT robot scaffold in the default scene.
 - Robot-free mid-level training scene for cue/ball physics experiments.
-- Single-step two-ball Gymnasium environment and deterministic TD3+BC with cue-position HER.
+- Single-step two-ball environment and deterministic direct behavior-cloning policy.
 - A 12-D residual joint-position Gymnasium environment with differential-IK nominal control.
 - The imported Gento Skye URDF, 14-D role-aware differential IK, and matching PPO residual checkpoint.
 - A physical Gento cue grasp: side approach, vertically closing fingers, and solid palm guards without weld constraints.
@@ -135,7 +135,7 @@ This scene combines:
 
 - `models/mujoco_billiards/billiard-table-definitions.xml`: byte-identical source table definition used directly for visuals and contacts.
 - `models/mujoco_billiards_integration.xml`: non-physical named sites used only for project pocket-event reporting.
-- `/home/ubuntu/mujoco-billiards/ball-definitions.xml`: source ball class and numbered materials, included directly by the scene.
+- `../mujoco-billiards/ball-definitions.xml`: source ball class and numbered materials, included directly from the sibling source checkout.
 - `models/balls_physics.xml`: source-style marked cue ball and textured 15-ball rack, with project-stable body and joint names.
 - `models/cue_physics.xml`: dynamic cue body with visual mesh and primitive collision.
 - `models/lift_articulated.xml`: articulated LIFT robot scaffold.
@@ -234,159 +234,124 @@ Start a PPO training run:
 python scripts/train/train_lowlevel_residual.py --total-timesteps 100000
 ```
 
-## Mid-Level Two-Ball TD3 + BC + HER
+## Mid-Level Two-Ball Direct Behavior Cloning
 
-The first learned mid-level policy is a robot-free, one-shot contextual-bandit
-task trained with a deterministic TD3-style actor. Its normalized observation is:
+The learned mid-level policy is a robot-free inverse shot model. Its normalized
+observation is:
 
 ```text
 [cue_x, cue_y, object_x, object_y, pocket_x, pocket_y, stop_x, stop_y]
 ```
 
-The general environment action contains a ghost-ball angle residual in
-`[-15, 15]` degrees and cue speed in `[0.3, 2.5]` m/s. The conservative
-learner fixes the angle residual at zero and only adjusts speed around its
-frozen BC prediction. A deterministic executor keeps the cue horizontal, hits
-the cue-ball center, and simulates the exact source table at a 10 us timestep
-until the required balls remain below the linear and surface-angular stop
-thresholds for 0.2 s.
+The action contains a ghost-ball angle residual in `[-15, 15]` degrees and cue
+speed in `[0.3, 2.5]` m/s. A deterministic executor keeps the cue horizontal,
+hits the cue-ball center, and simulates the exact source table at a 10 us
+timestep until the required balls remain below the linear and surface-angular
+stop thresholds for 0.2 s.
 
-Generate the default independent task libraries (61,440 train and 6,144 validation):
+Generate the independent balanced core libraries (196,608 train and 12,288 validation):
 
 ```bash
-python scripts/tools/generate_midlevel_tasks.py \
+CUDA_VISIBLE_DEVICES=<gpu-index> python scripts/tools/generate_midlevel_tasks.py \
   --backend mujoco-warp \
   --physics-device cuda:0 \
   --num-worlds 1024
 ```
 
-Task generation uses a short MJWarp prefilter followed by the full exact stopping
-rollout, then replays every accepted task before saving. Task files contain
-initial positions, pocket and target stop, the feasible generating action,
-terminal event metrics, seeds, a content hash, recursive XML and compiled-model
-hashes, and a fingerprint of the calibrated MJWarp model and physics code.
-Loading rejects a task file after its data, model, or backend changes. CPU-only
-libraries remain available with `--backend cpu --workers 32`, but cannot be
-used for MJWarp training.
+Task generation uses a short MJWarp prefilter followed by the full exact
+stopping rollout, then replays every accepted task before saving. Each task
+stores the feasible generating direction and speed as its BC label, together
+with physics and content hashes. Loading rejects stale or modified libraries.
 
-Train with 4,096 GPU-resident MuJoCo Warp worlds and one shot per world per
-rollout:
+Generation is stratified on the two physical distances that dominate basic
+shot difficulty:
+
+| Band | Cue ball to object ball | Object ball to pocket |
+| --- | ---: | ---: |
+| short | 0.30–0.48 m | 0.18–0.34 m |
+| medium | 0.48–0.68 m | 0.34–0.52 m |
+| long | 0.68–0.90 m | 0.52–0.70 m |
+
+The Cartesian product creates nine cells. The balanced core and validation are
+generated with independent seeds and are balanced across every pocket/cell
+combination; their per-cell counts differ by at most one. Aggregating a cell by
+its harder axis gives approximately `1/9` easy, `3/9` medium, and `5/9` hard
+tasks, so short finishing shots cannot dominate either split.
+Audit any libraries with:
 
 ```bash
-python scripts/train/train_midlevel_two_ball_td3_her.py \
+python scripts/tools/audit_midlevel_task_difficulty.py --require-balanced
+```
+
+The formal training library adds 196,608 targeted tasks to the balanced core,
+for 393,216 tasks total. It selects 49,152 distinct source geometries with
+extra weight on corner pockets and long cue-to-object distances. Every geometry
+is replayed at `-0.02`, `-0.01`, `+0.01`, and `+0.02` m/s around its source
+speed, retaining the four tasks only as a complete stable group. Run the
+resumable eight-GPU collection, merge, full-library replay, and atomic publish
+pipeline in tmux with:
+
+```bash
+tmux new-session -d -s midlevel_local_speed_393216 \
+  'bash scripts/tools/run_midlevel_local_speed_expansion_8gpu.sh'
+```
+
+The training split must cover every pocket/cell combination but is intentionally
+non-uniform after targeted augmentation. Validation remains strictly balanced
+at 12,288 tasks.
+
+Train exactly one Actor with one seed and one supervised stage:
+
+```bash
+CUDA_VISIBLE_DEVICES=<gpu-index> python scripts/train/train_midlevel_bc.py \
   --tasks outputs/tasks/midlevel_two_ball_train.npz \
-  --backend mujoco-warp \
-  --physics-device cuda:0 \
+  --validation-tasks outputs/tasks/midlevel_two_ball_validation.npz \
   --device cuda:0 \
-  --num-envs 4096 \
-  --buffer-size 327680 \
-  --batch-size 1024 \
-  --gradient-steps 64 \
-  --actor-learning-rate 1e-5 \
-  --critic-learning-rate 3e-4 \
-  --critic-warmup-updates 8192 \
-  --critic-probe-delta-weight 1.0 \
-  --critic-probe-ranking-weight 0.0 \
-  --critic-action-center-scale-mps 0.03 \
-  --critic-min-candidate-selection-count 128 \
-  --critic-min-candidate-improvement-precision 0.75 \
-  --critic-min-candidate-improvement-precision-lower-95 0.65 \
-  --critic-min-candidate-reward-improvement 0.002 \
-  --actor-update-interval 8 \
-  --actor-learning-starts 16384 \
-  --actor-candidate-supervision-weight 1.0 \
-  --actor-physical-probe-supervision-weight 0.0 \
-  --actor-candidate-min-q-improvement 0.10 \
-  --actor-candidate-min-safe-q 1.5 \
-  --actor-candidate-offsets-mps -0.03 -0.01 0.0 0.01 0.03 \
-  --max-speed-residual-mps 0.03 \
-  --residual-exploration-initial-std 0.35 \
-  --residual-exploration-final-std 0.05 \
-  --residual-exploration-decay-timesteps 65536 \
-  --her-ratio 0.10 \
-  --success-replay-ratio 0.20 \
-  --failure-replay-ratio 0.20 \
-  --local-probe-replay-ratio 0.25 \
-  --local-probe-task-count 16384 \
-  --local-probe-offsets-mps -0.03 -0.01 0.0 0.01 0.03 \
-  --bc-epochs 600 \
-  --bc-batch-size 2048 \
-  --bc-final-learning-rate 3e-5 \
-  --bc-speed-weight 8.0 \
-  --bc-validation-tasks outputs/tasks/midlevel_two_ball_validation.npz \
-  --bc-max-validation-speed-mae-mps 0.025 \
-  --bc-max-validation-speed-p95-mps 0.09 \
-  --bc-regularization-residual-weight 0.25 \
-  --total-timesteps 65536
+  --seed 0 \
+  --output outputs/checkpoints/midlevel_bc.pt
 ```
 
-The batched backend keeps physics and contact/terminal reduction on CUDA,
-accumulates capacity overflow across the entire shot, and transfers only
-terminal metrics to the host. The original spawned CPU backend remains
-available with `--backend cpu`. Use 4--8 worlds and a small replay batch for
-local smoke runs. A fresh run first behavior-clones the feasible action stored
-with every generated task and saves a `.bc_only.zip` baseline. Actor and critic
-both use a 47-dimensional deterministic geometry representation. BC uses a
-larger network, speed-weighted loss, and a decaying learning rate; a fixed
-validation library must pass both mean and p95 speed-error gates before any
-physical RL rollout.
+When an existing task library has been physically replayed successfully and
+only its stored implementation fingerprints are stale, add
+`--allow-task-fingerprint-mismatch`. Backend type and shot timing are never
+overridden by this option, and both old and active fingerprints are recorded in
+the checkpoint manifest.
 
-Every certified task/action is inserted into replay at maximum reward. Before
-critic warmup, balanced complete execution batches are replayed at five speed
-offsets without changing any task's MJWarp world slot. The offsets execute
-serially in that same slot around the frozen BC action at `-0.03`, `-0.01`,
-`0`, `+0.01`, and `+0.03` m/s. The twin critics express speed relative to the
-same frozen BC prediction, directly regress terminal reward, and explicitly
-fit each same-state reward delta relative to the measured BC center. A
-deterministic task-index split removes every transition from held-out tasks,
-including certified prefill and later online samples, from Critic training.
+The Actor expands the raw observation into 47 deterministic geometry features
+and feeds them through a `512, 512, 256` MLP. Both action dimensions are
+trained together by weighted action reconstruction. No second training stage,
+extra physical probes, replay buffer, or model/seed selection is used. The
+fixed validation library is reported after training but does not select among
+checkpoints.
 
-The actor is not allowed to exploit a smooth Q gradient across discontinuous
-pot/scratch boundaries. Instead, both critics must approve one of the five
-measured candidates, after which the delayed actor is supervised toward that
-candidate while retaining its frozen-BC regularizer. Direct supervision toward
-the per-task probe optimum is disabled because real curves show that label is
-not yet predictable on unseen tasks. Before any online shot, a real-physics
-gate requires at least 128 non-center choices, 75% true-improvement precision
-(and a 65% Wilson lower bound), positive mean reward, no loss of correct-pot or
-joint success, and no increase in failures on held-out tasks. A rejection saves
-the Critic/replay audit and stops safely at the `.bc_only.zip` policy.
-
-The online BC penalty is measured in bounded residual units, rather than in the
-much wider normalized physical-speed range, so its configured weight remains a
-material constraint on every Actor update.
-
-Online collection then hard-locks the ghost-ball angle, keeps the BC actor as
-an immutable baseline, and explores only a bounded `0.03 m/s` speed residual.
-Independent Gaussian residual noise decays from `0.35` to `0.05` in normalized
-residual units over 65,536 physical shots. The residual actor remains frozen
-for the first 16,384 shots. It tracks only the safety-gated candidate approved
-by both critics, strong BC anchoring does not decay, and it updates once per
-eight critic steps. Since each episode is one terminal action, unused bootstrapping,
-target-policy smoothing, and entropy updates are skipped. The comparison stage
-uses 16 rollouts (`65,536` shots) and 64 critic steps after each rollout.
-
-The custom HER buffer admits only correct-target-pot, no-scratch, stopped shots
-and relabels only the requested cue-ball stop position to the achieved stop; it
-never changes the target pocket. Minibatches reserve 10% for hindsight, 20%
-each for original successes and scratch/timeout/wrong-pocket failures, 25% for
-the same-state local probes, and 25% for uniform samples. The position-priority
-reward uses a 5 cm cue-stop distance scale, doubles the cue-position component,
-adds a 5 cm success bonus, and still hard-zeros every scratch. Behavior-cloning
-metrics are stored as `.bc.json` and the final replay state as
-`.replay_buffer.pkl`. Resume requires both the checkpoint and replay buffer and
-rejects incompatible manifests.
-Evaluate a fixed validation set with:
+Run physical validation with:
 
 ```bash
-python scripts/tools/evaluate_midlevel_two_ball_td3_her.py \
-  outputs/checkpoints/midlevel_two_ball_td3_her_v4.zip \
-  --backend mujoco-warp
+CUDA_VISIBLE_DEVICES=<gpu-index> python scripts/tools/evaluate_midlevel_bc.py \
+  outputs/checkpoints/midlevel_bc.pt \
+  --tasks outputs/tasks/midlevel_two_ball_validation.npz \
+  --backend mujoco-warp \
+  --device cuda:0 \
+  --physics-device cuda:0
 ```
 
-`TD3CheckpointMidLevelPolicy` adapts a checkpoint to both `ImpactParameters`
-and the existing `SkillCommand + SceneState -> CueCommand` pipeline contract.
-The original scripted policies and staged curriculum scaffold remain available.
+The physical report includes aggregate, per-pocket, per-cell, and
+`easy`/`medium`/`hard` success and stop-error metrics. Evaluation rejects an
+unbalanced validation library before launching physics.
+
+For one checked-GPU training and validation run, select one idle physical GPU
+explicitly:
+
+```bash
+bash scripts/train/run_midlevel_bc.sh <gpu-index>
+```
+
+Task regeneration is deliberately separate from training because the formal
+library combines a balanced core with audited targeted augmentation;
+`MIDLEVEL_REGENERATE_TASKS=1` is therefore rejected by the training wrapper.
+
+`BCCheckpointMidLevelPolicy` adapts the `.pt` checkpoint to the existing
+`SkillCommand + SceneState -> CueCommand` pipeline contract.
 
 ## Validation and Smoke Tests
 
@@ -420,18 +385,13 @@ Policy interface checks:
 ```bash
 python scripts/smoke_tests/pipeline_smoke.py
 python scripts/smoke_tests/run_midlevel_env_smoke.py
-python scripts/smoke_tests/midlevel_curriculum_smoke.py
 python scripts/smoke_tests/run_midlevel_reward_smoke.py
-python scripts/smoke_tests/run_midlevel_single_step_her_smoke.py
-python scripts/smoke_tests/run_midlevel_two_ball_ppo_env_smoke.py
-python scripts/smoke_tests/run_midlevel_ppo_training_smoke.py
-python scripts/smoke_tests/run_midlevel_mujoco_warp_ppo_smoke.py
-python scripts/smoke_tests/run_midlevel_td3_her_optimizer_smoke.py
-python scripts/smoke_tests/run_midlevel_conservative_residual_td3_smoke.py
-python scripts/smoke_tests/run_midlevel_critic_actor_gate_smoke.py
-python scripts/smoke_tests/run_midlevel_critic_local_probe_smoke.py
-python scripts/smoke_tests/run_midlevel_td3_post_update_smoke.py
-python scripts/smoke_tests/run_midlevel_mujoco_warp_td3_her_smoke.py
+python scripts/smoke_tests/run_midlevel_two_ball_env_smoke.py
+python scripts/smoke_tests/run_midlevel_bc_training_smoke.py
+python scripts/smoke_tests/run_midlevel_difficulty_smoke.py
+python scripts/smoke_tests/run_midlevel_mujoco_warp_generation_filter_smoke.py
+python scripts/smoke_tests/run_midlevel_mujoco_warp_slot_order_smoke.py \
+  outputs/tasks/midlevel_two_ball_validation.npz
 ```
 
 Cue spin response checks:
@@ -480,9 +440,9 @@ MUJOCO_GL=egl python scripts/render/render_spin_response_comparison.py --kind bo
 ## Asset Workflow
 
 The active table definition is an exact copy of
-`/home/ubuntu/mujoco-billiards/billiard-table-definitions.xml`; its source SDF
+`../mujoco-billiards/billiard-table-definitions.xml`; its source SDF
 geometry is used for both rendering and contacts. Both scenes directly include
-`/home/ubuntu/mujoco-billiards/ball-definitions.xml` and load its textures from
+`../mujoco-billiards/ball-definitions.xml` and load its textures from
 the source `img/` directory. Build and install the matching plugin with
 `scripts/assets/build_mujoco_billiards_sdf_plugin.py`.
 
@@ -505,8 +465,8 @@ python scripts/assets/extract_cue_visual_asset.py
 
 ## Attribution
 
-The active table design and ball assets come from
-`/home/ubuntu/mujoco-billiards`; the retained attribution copy under
+The active table design and ball assets come from the sibling checkout at
+`../mujoco-billiards`; the retained attribution copy under
 `assets/table/mujoco_billiards` comes from
 [`hideboz/mujoco-billiards`](https://github.com/hideboz/mujoco-billiards),
 licensed under MIT. See `assets/table/mujoco_billiards/LICENSE`.

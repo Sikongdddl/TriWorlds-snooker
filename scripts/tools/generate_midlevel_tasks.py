@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 from _bootstrap import add_src_to_path
@@ -16,7 +17,7 @@ from snooker_env.midlevel_mujoco_warp_tasks import (  # noqa: E402
     validate_mujoco_warp_task_dataset,
 )
 from snooker_env.midlevel_tasks import (  # noqa: E402
-    DEFAULT_TRAIN_TASKS,
+    DEFAULT_BALANCED_CORE_TASKS,
     DEFAULT_VALIDATION_TASKS,
     MUJOCO_WARP_PHYSICS_BACKEND,
     TwoBallTaskDataset,
@@ -139,6 +140,11 @@ def _generate(
         if workers > 1:
             generator_kwargs["num_workers"] = workers
         dataset = generator(count, **generator_kwargs)
+    print(
+        f"{label}: difficulty="
+        + json.dumps(dataset.difficulty_profile(), sort_keys=True),
+        flush=True,
+    )
     # Persist the expensive generation result before replaying it.  The
     # dataset writer itself uses a same-directory temporary file and atomic
     # replace, so an interrupted write cannot leave a partial archive.  Keep
@@ -191,7 +197,15 @@ def _generate(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", type=Path, default=DEFAULT_MIDLEVEL_MODEL)
-    parser.add_argument("--train-count", type=int, default=DEFAULT_TRAIN_TASKS)
+    parser.add_argument(
+        "--train-count",
+        type=int,
+        default=DEFAULT_BALANCED_CORE_TASKS,
+        help=(
+            "Number of uniformly balanced tasks. The formal 393216-task "
+            "training library adds targeted local-speed samples separately."
+        ),
+    )
     parser.add_argument("--validation-count", type=int, default=DEFAULT_VALIDATION_TASKS)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(

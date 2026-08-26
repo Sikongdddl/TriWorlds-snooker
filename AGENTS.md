@@ -3,7 +3,7 @@
 ## Project Structure & Module Organization
 
 - `src/snooker_env/` contains the Python package: scene loading, shared dataclasses, high/mid/low policy layers, MuJoCo controllers, and Gymnasium environments.
-- `models/` contains composable MJCF/XML definitions for the table, balls, cue, constraints, and LIFT robot. `models/mujoco_billiards/billiard-table-definitions.xml` is an exact vendor copy; do not reformat it. Active scenes load ball definitions and textures directly from `/home/ubuntu/mujoco-billiards`.
+- `models/` contains composable MJCF/XML definitions for the table, balls, cue, constraints, and LIFT robot. `models/mujoco_billiards/billiard-table-definitions.xml` is an exact vendor copy; do not reformat it. Active scenes load ball definitions and textures directly from the sibling `../mujoco-billiards` checkout.
 - `assets/` stores licensed visual meshes and textures. The active table intentionally uses the source SDF geoms for both appearance and collision.
 - `scripts/smoke_tests/` holds executable integration checks; `scripts/render/` creates diagnostic videos; `scripts/tools/` provides model inspection and viewing; `scripts/train/` contains RL entry points.
 - Generated media belongs under `outputs/` and must remain untracked.
@@ -16,12 +16,9 @@ Run all repository commands in the `pool` Conda environment:
 conda activate pool
 ```
 
-GPU workloads must run on the `node31` compute node rather than on the local/login node. Check GPU utilization first, prefer an idle GPU, and select it explicitly with `CUDA_VISIBLE_DEVICES`. `node31` and the local node share the same filesystem, so do not copy or synchronize the repository between them. Use this workflow:
+Check GPU utilization first, prefer an idle GPU, and select it explicitly with `CUDA_VISIBLE_DEVICES`.
 
 ```bash
-ssh node31
-cd TriWorlds-snooker/
-conda activate pool
 CUDA_VISIBLE_DEVICES=<gpu-index> python <script.py> [args...]
 ```
 

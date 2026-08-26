@@ -1,8 +1,8 @@
 <mujoco model="mujoco_billiards_midlevel_training_scene">
-  <include file="/home/ubuntu/mujoco-billiards/ball-definitions.xml"/>
+  <include file="../../mujoco-billiards/ball-definitions.xml"/>
   <compiler angle="degree" coordinate="local" autolimits="true"
-            meshdir="/home/ubuntu/TriWorlds-snooker/models"
-            texturedir="/home/ubuntu/mujoco-billiards/img"/>
+            meshdir="."
+            texturedir="../../mujoco-billiards/img"/>
   <option timestep="0.00002" gravity="0 0 -9.81" integrator="Euler"
           solver="Newton" iterations="80" tolerance="1e-8"/>
   <visual>

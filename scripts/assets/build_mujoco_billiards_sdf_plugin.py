@@ -10,7 +10,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-DEFAULT_SOURCE = Path("/home/ubuntu/mujoco-billiards")
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_SOURCE = REPOSITORY_ROOT.parent / "mujoco-billiards"
 
 EXTRA_SDF_SOURCES = (
     "chopped_cylinder.cc",

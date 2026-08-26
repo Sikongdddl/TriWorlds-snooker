@@ -11,6 +11,13 @@ from typing import Callable, Mapping, Sequence
 
 import numpy as np
 
+from snooker_env.midlevel_difficulty import (
+    TASK_DIFFICULTY_CELLS,
+    difficulty_cell,
+    difficulty_profile as build_difficulty_profile,
+    task_difficulty_index,
+    task_difficulty_indices,
+)
 from snooker_env.midlevel_env import DEFAULT_MIDLEVEL_MODEL
 from snooker_env.midlevel_two_ball import (
     MAX_CUE_SPEED,
@@ -29,8 +36,12 @@ from snooker_env.table_geometry import BALL_RADIUS
 TASK_DATASET_VERSION = 4
 CPU_PHYSICS_BACKEND = "mujoco_cpu"
 MUJOCO_WARP_PHYSICS_BACKEND = "mujoco_warp"
-DEFAULT_TRAIN_TASKS = 61_440
-DEFAULT_VALIDATION_TASKS = 6_144
+DEFAULT_BALANCED_CORE_TASKS = 196_608
+DEFAULT_LOCAL_SPEED_AUGMENTATION_TASKS = 196_608
+DEFAULT_TRAIN_TASKS = (
+    DEFAULT_BALANCED_CORE_TASKS + DEFAULT_LOCAL_SPEED_AUGMENTATION_TASKS
+)
+DEFAULT_VALIDATION_TASKS = 12_288
 EVENT_FLAG_NAMES = (
     "correct_pot",
     "legal_first_contact",
@@ -166,6 +177,41 @@ class TwoBallTaskDataset:
     def __len__(self) -> int:
         return int(self.pocket_indices.shape[0])
 
+    def difficulty_indices(self) -> np.ndarray:
+        """Return the derived distance-cell index for every task."""
+
+        return task_difficulty_indices(
+            self.cue_positions,
+            self.object_positions,
+            _POCKET_ARRAY[self.pocket_indices.astype(np.int64)],
+        )
+
+    def difficulty_profile(self) -> dict[str, object]:
+        """Return auditable distance statistics and difficulty counts."""
+
+        return build_difficulty_profile(
+            self.cue_positions,
+            self.object_positions,
+            _POCKET_ARRAY[self.pocket_indices.astype(np.int64)],
+        )
+
+    def pocket_difficulty_counts(self) -> np.ndarray:
+        """Count tasks in every pocket × distance-difficulty cell."""
+
+        counts = np.zeros(
+            (len(POCKET_NAMES), len(TASK_DIFFICULTY_CELLS)),
+            dtype=np.int64,
+        )
+        np.add.at(
+            counts,
+            (
+                self.pocket_indices.astype(np.int64),
+                self.difficulty_indices().astype(np.int64),
+            ),
+            1,
+        )
+        return counts
+
     def __getitem__(self, index: int) -> TwoBallTask:
         pocket_name = POCKET_NAMES[int(self.pocket_indices[index])]
         return TwoBallTask(
@@ -287,6 +333,7 @@ class TwoBallTaskDataset:
                 "stop_hold_time": self.stop_hold_time,
                 "task_count": len(self),
                 "content_sha256": self.content_sha256(),
+                "difficulty_profile": self.difficulty_profile(),
                 "pocket_names": POCKET_NAMES,
                 "event_flag_names": EVENT_FLAG_NAMES,
             },
@@ -368,6 +415,14 @@ class TwoBallTaskDataset:
             raise ValueError("Task dataset count does not match its metadata.")
         if metadata.get("content_sha256") != dataset.content_sha256():
             raise ValueError("Task dataset content hash does not match its metadata.")
+        stored_difficulty = metadata.get("difficulty_profile")
+        if (
+            stored_difficulty is not None
+            and stored_difficulty != dataset.difficulty_profile()
+        ):
+            raise ValueError(
+                "Task dataset difficulty profile does not match its task arrays."
+            )
         if validate_model:
             active_simulator = simulator or TwoBallShotSimulator(model_path)
             if dataset.xml_hash != active_simulator.xml_hash:
@@ -406,37 +461,105 @@ _POCKET_ARRAY = np.asarray(
 )
 
 
+def require_balanced_task_difficulty(
+    dataset: TwoBallTaskDataset,
+    *,
+    context: str,
+) -> None:
+    """Require complete and even pocket × distance-cell representation."""
+
+    counts = dataset.pocket_difficulty_counts()
+    minimum = int(np.min(counts))
+    maximum = int(np.max(counts))
+    pocket_totals = np.sum(counts, axis=1)
+    cell_totals = np.sum(counts, axis=0)
+    pocket_spread = int(np.max(pocket_totals) - np.min(pocket_totals))
+    cell_spread = int(np.max(cell_totals) - np.min(cell_totals))
+    if (
+        minimum > 0
+        and maximum - minimum <= 1
+        and pocket_spread <= 1
+        and cell_spread <= 1
+    ):
+        return
+    missing = int(np.sum(counts == 0))
+    raise ValueError(
+        f"{context} task difficulty is not balanced across all "
+        f"pocket/cell combinations: count_range=[{minimum}, {maximum}], "
+        f"pocket_spread={pocket_spread}, cell_spread={cell_spread}, "
+        f"missing_combinations={missing}. Regenerate the task library with "
+        "scripts/tools/generate_midlevel_tasks.py."
+    )
+
+
+def require_complete_task_difficulty(
+    dataset: TwoBallTaskDataset,
+    *,
+    context: str,
+) -> None:
+    """Require every pocket × distance cell without forcing uniform counts."""
+
+    counts = dataset.pocket_difficulty_counts()
+    missing = np.argwhere(counts == 0)
+    if missing.size == 0:
+        return
+    preview = [
+        f"{POCKET_NAMES[int(pocket)]}/{TASK_DIFFICULTY_CELLS[int(cell)].name}"
+        for pocket, cell in missing[:8]
+    ]
+    raise ValueError(
+        f"{context} task difficulty does not cover every pocket/cell "
+        f"combination: missing={len(missing)} preview={preview}."
+    )
+
+
 def _sample_candidate(
     pocket_name: str,
+    difficulty_cell_index: int,
     candidate_seed: int,
     simulator: TwoBallShotSimulator,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, float] | None:
     rng = np.random.default_rng(candidate_seed)
+    cell = difficulty_cell(difficulty_cell_index)
     pocket_position = simulator.pocket_positions[pocket_name]
-    # Put the object in a short finishing lane, then sample the cue around the
-    # ghost ball.  The independent cut angle is essential: placing the cue on
-    # the pot line produces only trivial straight shots and leaves PPO unable
-    # to learn speed transfer or rail/scratch avoidance for ordinary cuts.
+    # Sample both user-visible difficulty distances explicitly. The cue-to-ghost
+    # backoff is solved so that the resulting cue-to-object distance lands in
+    # the requested cell even for a cut shot.
     outward = pocket_position / max(float(np.linalg.norm(pocket_position)), 1e-12)
     lane_angle = rng.uniform(np.deg2rad(-2.0), np.deg2rad(2.0))
     pot_direction = rotate_direction(outward, lane_angle)
-    distance_to_pocket = float(rng.uniform(0.18, 0.34))
+    distance_to_pocket = float(rng.uniform(*cell.object_pocket_range_m))
     object_position = pocket_position - pot_direction * distance_to_pocket
     if abs(object_position[0]) > 0.56 or abs(object_position[1]) > 1.18:
         return None
     ghost_position = object_position - 2.0 * BALL_RADIUS * pot_direction
     cut_angle = rng.uniform(np.deg2rad(-48.0), np.deg2rad(48.0))
     shot_direction = rotate_direction(pot_direction, cut_angle)
-    cue_distance = rng.uniform(0.28, 0.82)
-    cue_position = ghost_position - shot_direction * cue_distance
+    cue_object_distance = float(rng.uniform(*cell.cue_object_range_m))
+    radius_projection = 2.0 * BALL_RADIUS * np.sin(cut_angle)
+    cue_to_ghost = (
+        -2.0 * BALL_RADIUS * np.cos(cut_angle)
+        + np.sqrt(cue_object_distance**2 - radius_projection**2)
+    )
+    cue_position = ghost_position - shot_direction * cue_to_ghost
     if abs(cue_position[0]) > 0.55 or abs(cue_position[1]) > 1.15:
         return None
     if np.linalg.norm(cue_position - object_position) < 3.0 * BALL_RADIUS:
         return None
     transfer = max(float(np.cos(cut_angle)), 0.55)
-    nominal_speed = (0.38 + 1.05 * distance_to_pocket) / transfer
+    nominal_speed = (
+        0.38
+        + 1.05 * distance_to_pocket
+        + 0.35 * max(cue_object_distance - 0.30, 0.0)
+    ) / transfer
     speed = quantize_cue_speed(
-        float(np.clip(nominal_speed + rng.uniform(-0.12, 0.18), MIN_CUE_SPEED, 1.8))
+        float(
+            np.clip(
+                nominal_speed + rng.uniform(-0.12, 0.18),
+                MIN_CUE_SPEED,
+                MAX_CUE_SPEED,
+            )
+        )
     )
     # Recompute through the public helper so the stored direction is exactly
     # the action-space baseline used during training.
@@ -494,6 +617,7 @@ def _task_from_result(
 
 def _generate_one_task(
     pocket_name: str,
+    difficulty_cell_index: int,
     task_seed: int,
     simulator: TwoBallShotSimulator,
     max_attempts: int,
@@ -501,10 +625,25 @@ def _generate_one_task(
     rng = np.random.default_rng(task_seed)
     for attempt in range(1, max_attempts + 1):
         candidate_seed = int(rng.integers(0, np.iinfo(np.uint32).max, dtype=np.uint32))
-        candidate = _sample_candidate(pocket_name, candidate_seed, simulator)
+        candidate = _sample_candidate(
+            pocket_name,
+            difficulty_cell_index,
+            candidate_seed,
+            simulator,
+        )
         if candidate is None:
             continue
         cue_position, object_position, direction, speed = candidate
+        actual_cell_index = task_difficulty_index(
+            cue_position,
+            object_position,
+            simulator.pocket_positions[pocket_name],
+        )
+        if actual_cell_index != difficulty_cell_index:
+            raise RuntimeError(
+                "Candidate geometry escaped its requested difficulty cell: "
+                f"{actual_cell_index} != {difficulty_cell_index}."
+            )
         result = simulator.execute(
             cue_position,
             object_position,
@@ -528,16 +667,70 @@ def _generate_one_task(
     )
 
 
-def _generation_schedule(count: int, seed: int) -> tuple[tuple[str, int], ...]:
+def _generation_schedule(
+    count: int,
+    seed: int,
+) -> tuple[tuple[str, int, int], ...]:
     rng = np.random.default_rng(seed)
-    repeats = int(np.ceil(count / len(POCKET_NAMES)))
-    pocket_order = np.tile(np.asarray(POCKET_NAMES, dtype="U32"), repeats)
+    pocket_order = list(POCKET_NAMES)
+    cell_order = [cell.index for cell in TASK_DIFFICULTY_CELLS]
     rng.shuffle(pocket_order)
-    pocket_order = pocket_order[:count]
+    rng.shuffle(cell_order)
+    combinations = [
+        (pocket_name, cell_index)
+        for pocket_name in pocket_order
+        for cell_index in cell_order
+    ]
+    full_cycles, remainder = divmod(count, len(combinations))
+    order = combinations * full_cycles
+    if remainder:
+        pocket_base, pocket_extra = divmod(remainder, len(pocket_order))
+        cell_base, cell_extra = divmod(remainder, len(cell_order))
+        pocket_degrees = {
+            pocket_name: pocket_base + int(index < pocket_extra)
+            for index, pocket_name in enumerate(pocket_order)
+        }
+        remaining_cell_degrees = {
+            cell_index: cell_base + int(index < cell_extra)
+            for index, cell_index in enumerate(cell_order)
+        }
+        # Bipartite Havel-Hakimi realizes the near-regular remainder as unique
+        # pocket/cell edges. This balances both marginals while retaining the
+        # at-most-one difference between all 54 joint quotas.
+        for pocket_name in sorted(
+            pocket_order,
+            key=lambda name: -pocket_degrees[name],
+        ):
+            degree = pocket_degrees[pocket_name]
+            ranked_cells = sorted(
+                cell_order,
+                key=lambda index: -remaining_cell_degrees[index],
+            )
+            selected_cells = [
+                cell_index
+                for cell_index in ranked_cells
+                if remaining_cell_degrees[cell_index] > 0
+            ][:degree]
+            if len(selected_cells) != degree:
+                raise RuntimeError(
+                    "Could not construct a balanced task-generation schedule."
+                )
+            for cell_index in selected_cells:
+                order.append((pocket_name, cell_index))
+                remaining_cell_degrees[cell_index] -= 1
+        if any(remaining_cell_degrees.values()):
+            raise RuntimeError(
+                "Balanced task-generation schedule left an unmatched cell quota."
+            )
+    rng.shuffle(order)
     task_seeds = rng.integers(0, np.iinfo(np.uint64).max, size=count, dtype=np.uint64)
     return tuple(
-        (str(pocket_name), int(task_seed))
-        for pocket_name, task_seed in zip(pocket_order, task_seeds, strict=True)
+        (str(pocket_name), int(cell_index), int(task_seed))
+        for (pocket_name, cell_index), task_seed in zip(
+            order,
+            task_seeds,
+            strict=True,
+        )
     )
 
 
@@ -558,9 +751,13 @@ def generate_task_dataset(
         raise ValueError("max_attempts_per_task must be positive.")
     active_simulator = simulator or TwoBallShotSimulator(model_path)
     tasks: list[TwoBallTask] = []
-    for pocket_name, task_seed in _generation_schedule(count, seed):
+    for pocket_name, cell_index, task_seed in _generation_schedule(count, seed):
         attempt, task = _generate_one_task(
-            pocket_name, task_seed, active_simulator, max_attempts_per_task
+            pocket_name,
+            cell_index,
+            task_seed,
+            active_simulator,
+            max_attempts_per_task,
         )
         tasks.append(task)
         if progress is not None:
@@ -586,11 +783,19 @@ def _initialize_generation_worker(
     )
 
 
-def _generation_worker(arguments: tuple[str, int, int]) -> tuple[int, TwoBallTask]:
+def _generation_worker(
+    arguments: tuple[str, int, int, int],
+) -> tuple[int, TwoBallTask]:
     if _WORKER_SIMULATOR is None:
         raise RuntimeError("Task generation worker was not initialized.")
-    pocket_name, task_seed, max_attempts = arguments
-    return _generate_one_task(pocket_name, task_seed, _WORKER_SIMULATOR, max_attempts)
+    pocket_name, cell_index, task_seed, max_attempts = arguments
+    return _generate_one_task(
+        pocket_name,
+        cell_index,
+        task_seed,
+        _WORKER_SIMULATOR,
+        max_attempts,
+    )
 
 
 def generate_task_dataset_parallel(
@@ -622,8 +827,8 @@ def generate_task_dataset_parallel(
 
     active_simulator = simulator or TwoBallShotSimulator(model_path)
     work = tuple(
-        (pocket_name, task_seed, max_attempts_per_task)
-        for pocket_name, task_seed in _generation_schedule(count, seed)
+        (pocket_name, cell_index, task_seed, max_attempts_per_task)
+        for pocket_name, cell_index, task_seed in _generation_schedule(count, seed)
     )
     tasks: list[TwoBallTask] = []
     context = multiprocessing.get_context("spawn")

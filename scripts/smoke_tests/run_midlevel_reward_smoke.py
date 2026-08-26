@@ -10,7 +10,7 @@ from _bootstrap import add_src_to_path
 
 add_src_to_path()
 
-from snooker_env.midlevel_ppo_env import (  # noqa: E402
+from snooker_env.midlevel_two_ball_env import (  # noqa: E402
     MAX_TERMINAL_REWARD,
     compute_terminal_reward,
 )

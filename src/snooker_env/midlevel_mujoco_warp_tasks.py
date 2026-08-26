@@ -8,12 +8,17 @@ from typing import Callable, Mapping, Sequence
 
 import numpy as np
 
+from snooker_env.midlevel_difficulty import (
+    TASK_DIFFICULTY_CELLS,
+    difficulty_cell,
+    task_difficulty_index,
+)
 from snooker_env.midlevel_env import DEFAULT_MIDLEVEL_MODEL
 from snooker_env.midlevel_mujoco_warp_vec_env import (
     MJWarpMidLevelVecEnv,
     active_mujoco_warp_backend_sha256,
 )
-from snooker_env.midlevel_ppo_env import (
+from snooker_env.midlevel_two_ball_env import (
     OBSERVATION_X_SCALE,
     OBSERVATION_Y_SCALE,
 )
@@ -36,14 +41,32 @@ from snooker_env.mujoco_warp_sdf import MUJOCO_WARP_NCONMAX, MUJOCO_WARP_NJMAX
 
 GenerationProgress = Callable[[int, int, TwoBallTask], None]
 GenerationStatus = Callable[[str], None]
+DifficultyKey = tuple[str, int]
+
+
+def _task_difficulty_key(task: TwoBallTask) -> DifficultyKey:
+    return (
+        task.pocket_name,
+        task_difficulty_index(
+            task.cue_position,
+            task.object_position,
+            task.pocket_position,
+        ),
+    )
 
 
 def _candidate_task(
     pocket_name: str,
+    difficulty_cell_index: int,
     candidate_seed: int,
     simulator: TwoBallShotSimulator,
 ) -> TwoBallTask | None:
-    candidate = _sample_candidate(pocket_name, candidate_seed, simulator)
+    candidate = _sample_candidate(
+        pocket_name,
+        difficulty_cell_index,
+        candidate_seed,
+        simulator,
+    )
     if candidate is None:
         return None
     cue_position, object_position, direction, speed = candidate
@@ -256,7 +279,7 @@ def _fixed_layout_indices(
 
 def _canonicalize_fixed_layout(
     tasks: Sequence[TwoBallTask],
-    replacement_tasks: Mapping[str, Sequence[TwoBallTask]],
+    replacement_tasks: Mapping[DifficultyKey, Sequence[TwoBallTask]],
     *,
     simulator: TwoBallShotSimulator,
     generation_seed: int,
@@ -289,8 +312,11 @@ def _canonicalize_fixed_layout(
     count = len(canonical_tasks)
     batch_size = min(num_worlds, count)
     replacements = {
-        pocket_name: deque(replacement_tasks.get(pocket_name, ()))
+        (pocket_name, cell.index): deque(
+            replacement_tasks.get((pocket_name, cell.index), ())
+        )
         for pocket_name in POCKET_NAMES
+        for cell in TASK_DIFFICULTY_CELLS
     }
     occupied_seeds = {task.candidate_seed for task in canonical_tasks}
     if len(occupied_seeds) != count:
@@ -411,15 +437,15 @@ def _canonicalize_fixed_layout(
 
                 for task_index in failures:
                     old_task = canonical_tasks[task_index]
-                    pocket_name = old_task.pocket_name
+                    replacement_key = _task_difficulty_key(old_task)
                     occupied_seeds.remove(old_task.candidate_seed)
                     replacement: TwoBallTask | None = None
-                    while replacements[pocket_name]:
-                        candidate = replacements[pocket_name].popleft()
-                        if candidate.pocket_name != pocket_name:
+                    while replacements[replacement_key]:
+                        candidate = replacements[replacement_key].popleft()
+                        if _task_difficulty_key(candidate) != replacement_key:
                             raise RuntimeError(
                                 "A fixed-layout replacement was queued under "
-                                "the wrong pocket."
+                                "the wrong pocket/difficulty cell."
                             )
                         if candidate.candidate_seed not in occupied_seeds:
                             replacement = candidate
@@ -427,7 +453,7 @@ def _canonicalize_fixed_layout(
                     if replacement is None:
                         raise RuntimeError(
                             "MJWarp fixed-layout replacement pool exhausted for "
-                            f"{pocket_name} at task slot {task_index}."
+                            f"{replacement_key} at task slot {task_index}."
                         )
                     canonical_tasks[task_index] = replacement
                     occupied_seeds.add(replacement.candidate_seed)
@@ -495,30 +521,48 @@ def generate_mujoco_warp_task_dataset(
         raise RuntimeError("MJWarp fingerprint model does not match task generation model.")
 
     schedule = _generation_schedule(count, seed)
+    difficulty_keys = [
+        (pocket_name, cell.index)
+        for pocket_name in POCKET_NAMES
+        for cell in TASK_DIFFICULTY_CELLS
+    ]
     final_required = {
-        pocket_name: sum(name == pocket_name for name, _ in schedule)
-        for pocket_name in POCKET_NAMES
+        key: sum(
+            (pocket_name, cell_index) == key
+            for pocket_name, cell_index, _ in schedule
+        )
+        for key in difficulty_keys
     }
-    reserve_required = {
-        pocket_name: (
-            min(
+    reserve_required = {key: 0 for key in difficulty_keys}
+    if canonical_reserve_per_pocket > 0:
+        for pocket_name in POCKET_NAMES:
+            active_keys = [
+                key
+                for key in difficulty_keys
+                if key[0] == pocket_name and final_required[key] > 0
+            ]
+            if not active_keys:
+                continue
+            reserve_budget = max(
                 canonical_reserve_per_pocket,
-                max(1, int(np.ceil(final_required[pocket_name] * 0.02))),
+                len(active_keys),
             )
-            if final_required[pocket_name] > 0
-            and canonical_reserve_per_pocket > 0
-            else 0
-        )
-        for pocket_name in POCKET_NAMES
-    }
+            base_reserve, extra_reserve = divmod(
+                reserve_budget,
+                len(active_keys),
+            )
+            for index, key in enumerate(active_keys):
+                allocated = base_reserve + int(index < extra_reserve)
+                reserve_required[key] = min(
+                    allocated,
+                    max(1, int(np.ceil(final_required[key] * 0.02))),
+                )
     required = {
-        pocket_name: (
-            final_required[pocket_name] + reserve_required[pocket_name]
-        )
-        for pocket_name in POCKET_NAMES
+        key: final_required[key] + reserve_required[key]
+        for key in difficulty_keys
     }
     pool_count = sum(required.values())
-    accepted_per_pocket = {pocket_name: 0 for pocket_name in POCKET_NAMES}
+    accepted_per_key = {key: 0 for key in difficulty_keys}
     accepted: list[TwoBallTask] = []
     rng = np.random.default_rng(seed)
     attempts = 0
@@ -529,14 +573,14 @@ def generate_mujoco_warp_task_dataset(
     full_environment: MJWarpMidLevelVecEnv | None = None
     replay_environment: MJWarpMidLevelVecEnv | None = None
     survivors: list[TwoBallTask] = []
-    pocket_cursor = 0
+    difficulty_cursor = 0
     try:
         while len(accepted) < pool_count:
             survivors = [
                 candidate
                 for candidate in survivors
-                if accepted_per_pocket[candidate.pocket_name]
-                < required[candidate.pocket_name]
+                if accepted_per_key[_task_difficulty_key(candidate)]
+                < required[_task_difficulty_key(candidate)]
             ]
             while len(survivors) < full_worlds and attempts < maximum_attempts:
                 candidates: list[TwoBallTask] = []
@@ -545,12 +589,14 @@ def generate_mujoco_warp_task_dataset(
                     and attempts < maximum_attempts
                 ):
                     eligible = [
-                        name
-                        for name in POCKET_NAMES
-                        if accepted_per_pocket[name] < required[name]
+                        key
+                        for key in difficulty_keys
+                        if accepted_per_key[key] < required[key]
                     ]
-                    pocket_name = eligible[pocket_cursor % len(eligible)]
-                    pocket_cursor += 1
+                    pocket_name, cell_index = eligible[
+                        difficulty_cursor % len(eligible)
+                    ]
+                    difficulty_cursor += 1
                     candidate_seed = int(
                         rng.integers(
                             0,
@@ -561,6 +607,7 @@ def generate_mujoco_warp_task_dataset(
                     attempts += 1
                     candidate = _candidate_task(
                         pocket_name,
+                        cell_index,
                         candidate_seed,
                         simulator,
                     )
@@ -633,9 +680,11 @@ def generate_mujoco_warp_task_dataset(
 
             if not survivors:
                 remaining = {
-                    name: required[name] - accepted_per_pocket[name]
-                    for name in POCKET_NAMES
-                    if required[name] > accepted_per_pocket[name]
+                    f"{key[0]}/{difficulty_cell(key[1]).name}": (
+                        required[key] - accepted_per_key[key]
+                    )
+                    for key in difficulty_keys
+                    if required[key] > accepted_per_key[key]
                 }
                 raise RuntimeError(
                     "MJWarp task generation exhausted its candidate budget; "
@@ -695,9 +744,9 @@ def generate_mujoco_warp_task_dataset(
                 infos[:valid_count],
                 strict=True,
             ):
-                pocket_name = candidate.pocket_name
+                key = _task_difficulty_key(candidate)
                 if (
-                    accepted_per_pocket[pocket_name] >= required[pocket_name]
+                    accepted_per_key[key] >= required[key]
                     or not _is_feasible_info(info)
                 ):
                     continue
@@ -754,8 +803,8 @@ def generate_mujoco_warp_task_dataset(
                 replay_infos[:replay_count],
                 strict=True,
             ):
-                pocket_name = candidate.pocket_name
-                if accepted_per_pocket[pocket_name] >= required[pocket_name]:
+                key = _task_difficulty_key(candidate)
+                if accepted_per_key[key] >= required[key]:
                     continue
                 task = _canonical_replay_task(
                     candidate,
@@ -766,7 +815,7 @@ def generate_mujoco_warp_task_dataset(
                 if task is None:
                     continue
                 accepted.append(task)
-                accepted_per_pocket[pocket_name] += 1
+                accepted_per_key[key] += 1
                 if progress is not None and len(accepted) <= count:
                     progress(len(accepted), attempts, task)
                 if len(accepted) == pool_count:
@@ -791,26 +840,28 @@ def generate_mujoco_warp_task_dataset(
         full_environment = None
         replay_environment = None
 
-    selected_per_pocket = {pocket_name: 0 for pocket_name in POCKET_NAMES}
+    selected_per_key = {key: 0 for key in difficulty_keys}
     final_tasks: list[TwoBallTask] = []
-    replacement_tasks = {pocket_name: [] for pocket_name in POCKET_NAMES}
+    replacement_tasks: dict[DifficultyKey, list[TwoBallTask]] = {
+        key: [] for key in difficulty_keys
+    }
     for task in accepted:
-        pocket_name = task.pocket_name
-        if selected_per_pocket[pocket_name] < final_required[pocket_name]:
+        key = _task_difficulty_key(task)
+        if selected_per_key[key] < final_required[key]:
             final_tasks.append(task)
-            selected_per_pocket[pocket_name] += 1
+            selected_per_key[key] += 1
         else:
-            replacement_tasks[pocket_name].append(task)
+            replacement_tasks[key].append(task)
     if len(final_tasks) != count:
         raise RuntimeError(
-            "MJWarp stable pool did not contain the requested final pocket "
+            "MJWarp stable pool did not contain the requested pocket/difficulty "
             f"balance: selected={len(final_tasks)}/{count}."
         )
-    for pocket_name in POCKET_NAMES:
-        if len(replacement_tasks[pocket_name]) != reserve_required[pocket_name]:
+    for key in difficulty_keys:
+        if len(replacement_tasks[key]) != reserve_required[key]:
             raise RuntimeError(
                 "MJWarp stable pool did not contain its requested canonical "
-                f"reserve for {pocket_name}."
+                f"reserve for {key}."
             )
 
     if status is not None:
@@ -818,7 +869,7 @@ def generate_mujoco_warp_task_dataset(
             "starting fixed-layout double replay "
             f"tasks={count} reserves={pool_count - count}"
         )
-    return _canonicalize_fixed_layout(
+    dataset = _canonicalize_fixed_layout(
         final_tasks,
         replacement_tasks,
         simulator=simulator,
@@ -835,6 +886,22 @@ def generate_mujoco_warp_task_dataset(
         max_rounds=canonical_max_rounds,
         status=status,
     )
+    actual_counts = {
+        key: 0 for key in difficulty_keys
+    }
+    difficulty_indices = dataset.difficulty_indices()
+    for pocket_index, cell_index in zip(
+        dataset.pocket_indices,
+        difficulty_indices,
+        strict=True,
+    ):
+        actual_counts[(POCKET_NAMES[int(pocket_index)], int(cell_index))] += 1
+    if actual_counts != final_required:
+        raise RuntimeError(
+            "Fixed-layout replay changed the requested pocket/difficulty "
+            "distribution."
+        )
+    return dataset
 
 
 def _validate_mujoco_warp_dataset_compatibility(
@@ -907,13 +974,17 @@ def canonicalize_mujoco_warp_task_dataset(
         backend_hash,
     )
 
-    grouped_replacements = {pocket_name: [] for pocket_name in POCKET_NAMES}
+    grouped_replacements: dict[DifficultyKey, list[TwoBallTask]] = {
+        (pocket_name, cell.index): []
+        for pocket_name in POCKET_NAMES
+        for cell in TASK_DIFFICULTY_CELLS
+    }
     for task in replacement_tasks:
-        if task.pocket_name not in grouped_replacements:
+        if task.pocket_name not in POCKET_NAMES:
             raise ValueError(
                 f"Replacement task has an unknown pocket: {task.pocket_name}"
             )
-        grouped_replacements[task.pocket_name].append(task)
+        grouped_replacements[_task_difficulty_key(task)].append(task)
 
     return _canonicalize_fixed_layout(
         [dataset[index] for index in range(len(dataset))],
@@ -1029,12 +1100,13 @@ def repair_mujoco_warp_task_dataset(
     return _canonicalize_fixed_layout(
         [dataset[index] for index in range(len(dataset))],
         {
-            pocket_name: [
+            (pocket_name, cell.index): [
                 task
                 for task in replacements
-                if task.pocket_name == pocket_name
+                if _task_difficulty_key(task) == (pocket_name, cell.index)
             ]
             for pocket_name in POCKET_NAMES
+            for cell in TASK_DIFFICULTY_CELLS
         },
         simulator=simulator,
         generation_seed=dataset.generation_seed,
@@ -1057,6 +1129,7 @@ def validate_mujoco_warp_task_dataset(
     *,
     model_path: Path = DEFAULT_MIDLEVEL_MODEL,
     max_tasks: int | None = None,
+    start_task: int = 0,
     num_worlds: int = 1024,
     device: str = "cuda:0",
     chunk_steps: int = 16,
@@ -1076,17 +1149,30 @@ def validate_mujoco_warp_task_dataset(
 
     if max_tasks is not None and max_tasks <= 0:
         raise ValueError("max_tasks must be positive when provided.")
+    if start_task < 0:
+        raise ValueError("start_task must be non-negative.")
     if num_worlds <= 0:
         raise ValueError("num_worlds must be positive.")
     if not np.isfinite(stop_tolerance) or stop_tolerance <= 0.0:
         raise ValueError("stop_tolerance must be positive and finite.")
     total_count = len(dataset)
+    if start_task >= total_count:
+        raise ValueError("start_task must identify a task in the dataset.")
+    available_count = total_count - start_task
     checked_count = (
-        total_count if max_tasks is None else min(total_count, max_tasks)
+        available_count
+        if max_tasks is None
+        else min(available_count, max_tasks)
     )
     if checked_count <= 0:
         raise ValueError("A replay check requires at least one task.")
     batch_size = min(num_worlds, total_count)
+    if start_task % batch_size != 0:
+        raise ValueError(
+            "start_task must align with the final replay batch size "
+            f"({batch_size})."
+        )
+    end_task = start_task + checked_count
     failures: list[str] = []
     max_stop_error = 0.0
     passed = 0
@@ -1102,9 +1188,9 @@ def validate_mujoco_warp_task_dataset(
         max_time=max_time,
     )
     try:
-        for start in range(0, checked_count, batch_size):
+        for start in range(start_task, end_task, batch_size):
             valid_count = min(batch_size, total_count - start)
-            checked_in_batch = min(valid_count, checked_count - start)
+            checked_in_batch = min(valid_count, end_task - start)
             indices = _fixed_layout_indices(start, total_count, batch_size)
             tasks = [dataset[index] for index in indices]
             environment.set_options(
